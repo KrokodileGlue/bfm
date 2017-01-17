@@ -1,0 +1,41 @@
+var i
+var notDone
+
+i = 1
+notDone = 1
+
+print "\"FizzBuzz!\"\nby retrosegfault.tumblr.com\n"
+
+while notDone
+	var shouldPrintNum
+	shouldPrintNum = 1
+
+	var iModThree
+	iModThree = i
+	iModThree % 3
+
+	if iModThree
+		print "Fizz"
+		shouldPrintNum = 0
+	endif
+
+	var iModFive
+	iModFive = i
+	iModFive % 5
+
+	if iModFive
+		print "Buzz"
+		shouldPrintNum = 0
+	endif
+
+	if shouldPrintNum
+		print i
+	endif
+
+	print "\n"
+
+	notDone = i
+	notDone == 101
+
+	i + 1
+endwhile
