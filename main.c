@@ -273,7 +273,7 @@ typedef struct struct_token {
 	struct struct_token* prev;
 } Token;
 
-enum {
+enum { /* math operators */
 	MOP_EQUEQU, MOP_NEQU  ,
 	MOP_ANDAND, MOP_OROR  ,
 	MOP_ADDEQU, MOP_SUBEQU,
@@ -611,7 +611,24 @@ void emit_char(char c)
         while (!IS_BF_COMMAND(*c) && *c) c++; \
     } while (0);
 
-int cell_pointer = 0, temp_cells = 2;
+#define NUM_TEMP_CELLS 10
+int cell_pointer = 0, temp_cells = 0, temp_x = 0, temp_x_index = 0, temp_y = 0, temp_y_index = 0;
+
+int count_variables(Token* tok)
+{
+	int res = 0;
+
+	while (tok->next) {
+		printf("Scanning token: %s\n", tok->value);
+		if (!strcmp(tok->value, "var"))
+			res++;
+
+		tok = tok->next;
+	}
+
+	printf("It looks like there are %d variables.\n", res);
+	return res;
+}
 
 void move_pointer(int distance)
 {
@@ -660,8 +677,6 @@ char algorithms[NUM_ALGORITHMS][256] = {
 
 void emit_algo(int algo, int x, int y, int z)
 {
-	printf("dividing cell %d by cell %d.\n", x, y);
-	
 	int i = 0;
 	while (algorithms[algo][i] != '\0') {
 		if (IS_BF_COMMAND(algorithms[algo][i])) {
@@ -698,7 +713,7 @@ void add(int amount)
 
 void emit_print_string(const char* str)
 {
-	move_pointer_to(0);
+	move_pointer_to(temp_cells);
 	emit("[-]"), add(str[0]), emit(".");
 	
 	int i = 1;
@@ -709,20 +724,10 @@ void emit_print_string(const char* str)
 	}
 }
 
-#define MAX_VARIABLES 4096
-char* variable_names[MAX_VARIABLES];
-int num_variables;
-
-void add_variable(char* varname)
-{
-	variable_names[num_variables++] = varname;
-}
-
 enum {
 	KYWRD_VAR,
-	KYWRD_PRINTC,
 	KYWRD_WHILE,
-	KYWRD_END,
+	KYWRD_ENDWHILE,
 	KYWRD_GOTO,
 	KYWRD_IF,
 	KYWRD_ENDIF,
@@ -730,13 +735,11 @@ enum {
 	KYWRD_PRINT,
 	KYWRD_ARRAY,
 	KYWRD_BF,
-	KYWRD_PRINTV
 };
 
 #define NUM_KEYWORDS 12
 char keywords[NUM_KEYWORDS][15] = {
 	"var",
-	"printc",
 	"while",
 	"endwhile",
 	"goto",
@@ -746,10 +749,9 @@ char keywords[NUM_KEYWORDS][15] = {
 	"print",
 	"array",
 	"bf",
-	"printv"
 };
 
-int is_keyword(char* str)
+int get_keyword(char* str)
 {
 	for (int i = 0; i < NUM_KEYWORDS; i++)
 		if (!strcmp(str, keywords[i]))
@@ -757,35 +759,132 @@ int is_keyword(char* str)
 	return -1;
 }
 
+typedef struct {
+	char* name;
+	int location;
+} Variable;
+Variable variables[4096];
+int num_variables;
+
+void add_variable(char* varname)
+{
+	variables[num_variables].location = num_variables;
+	variables[num_variables++].name = varname;
+}
+
+int get_variable_index(char* varname)
+{
+	for (int i = 0; i < num_variables; i++) {
+		if (!strcmp(variables[i].name, varname))
+			return i;
+	}
+	return -1;
+}
+
+/* [0][0][0][0][0][0][0][0][0][0][TEMP_X][TEMP_X_INDEX][TEMP_Y][TEMP_Y_INDEX] */
+
+void parse_operation(Token** token)
+{
+	Token* tok = *token;
+
+	int left = 0, operation = 0, right = 0;
+
+	int left_index = get_variable_index(tok->value);
+	if (left_index == -1)
+		fatal_error(tok->origin, "expected an a variable identifier.\n");
+
+	left = variables[left_index].location;
+	tok = tok->next;
+
+	operation = get_operator_type(tok->value);
+	tok = tok->next;
+
+	int right_index = get_variable_index(tok->value);
+	if (right_index == -1) {
+		move_pointer_to(temp_y);
+		emit("[-]");
+		long a = strtol(tok->value, NULL, 0);
+		add((int)a);
+	} else {
+		right = variables[right_index].location;
+	}
+
+	printf("operation %d on locations %d (%s) and %d (%s).\n", operation, left, tok->prev->prev->value, right, tok->value);
+
+	int algo;
+	switch (operation) {
+		case MOP_EQU: algo = ALGO_EQU; break;
+		case MOP_MOD: algo = ALGO_MOD; break;
+		case MOP_EQUEQU: algo = ALGO_CEQU; break;
+	}
+
+	emit_algo(algo, left, right, -1);
+
+	*token = tok;
+}
+
 void parse_keyword(Token** token)
 {
 	Token* tok = *token;
-	if (!strcmp(tok->value, "print")) {
-		tok = tok->next;
-		emit_print_string(tok->value);
-	} else if (!strcmp(tok->value, "var")) {
-		tok = tok->next;
-		add_variable(tok->value);
+
+	switch (get_keyword(tok->value)) {
+		case KYWRD_VAR:
+			tok = tok->next;
+			add_variable(tok->value);
+			break;
+		case KYWRD_WHILE: tok = tok->next; break;
+		case KYWRD_ENDWHILE: break;
+		case KYWRD_GOTO: tok = tok->next; break;
+		case KYWRD_IF: tok = tok->next; break;
+		case KYWRD_ENDIF: break;
+		case KYWRD_NOT: tok = tok->next; break;
+		case KYWRD_PRINT:
+			tok = tok->next;
+			switch (tok->type) {
+				case TOK_STRING:
+					emit_print_string(tok->value);
+					break;
+				case TOK_NUMBER: {
+					char c[2] = { 0, 0 };
+					c[0] = (char)strtol(tok->value, NULL, 0);
+					
+					emit_print_string(c);
+					break;
+				}
+				case TOK_IDENTIFIER:
+					emit_print_string(tok->value);
+					break;
+				default:
+					push_error(-1, "unexpected token \"%s\", expected a string, number, or identifier.", tok->value);
+			}
+			break;
+		case KYWRD_ARRAY: break;
+		case KYWRD_BF: break;
 	}
+
 	*token = tok;
 }
 
 void parse(Token* tok)
 {
 	while (tok->next) {
-		if (is_keyword(tok->value) != -1) {
+		if (get_keyword(tok->value) != -1) {
 			parse_keyword(&tok);
+		} else if (get_variable_index(tok->value) != -1) {
+			parse_operation(&tok);
 		} else {
-			//printf("unhandled token %s.\n", tok->value);
+			printf("unhandled token %s.\n", tok->value);
 		}
 
 		tok = tok->next;
 	}
+
+	check_errors();
 }
 
 int main(int argc, char **argv)
 {
-	for (int i = 0; i < argc; i++) {
+	for (int i = 1; i < argc; i++) {
 		if (!strncmp(argv[i], "-o", 2))
 			output_path = &argv[i][2];
 		else
@@ -796,12 +895,16 @@ int main(int argc, char **argv)
 		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
 
 	char *src = load_file(input_path);
+
+	if (!src)
+		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
+
 	Token *tok = tokenize(src);
+	temp_cells = count_variables(tok);
+	temp_y = temp_cells + NUM_TEMP_CELLS;
+
 	parse(tok);
-	
-	reset_emit();
-	emit("++++++++++>+++++<");
-	emit_algo(ALGO_DIV, 0, 1, -1);
+
 	puts(output);
 
 	while (tok->next) {
@@ -809,7 +912,7 @@ int main(int argc, char **argv)
 		tok = tok->next;
 	}
 	for (int i = 0; i < num_variables; i++)
-		printf("variable: %s\n", variable_names[i]);
+		printf("variable: %s at %d\n", variables[i].name, variables[i].location);
 
 	return 0;
 }
