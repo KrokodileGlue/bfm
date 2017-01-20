@@ -3,18 +3,23 @@ A simple macro language that generates brainfuck code, supporting // and /**/ st
 
 ## syntax
 All statements (except for the end keyword) follow this form:
-	<keyword> [argument]
+
+`[keyword] [argument]`
+
 e.g.
-	+ var foo
-	+ if foo
-	+ end
-	+ print "Hello world!\n"
+
+`var foo
+if foo
+print "Hello world!\n"`
+
 All other valid code fragments follow this form:
-	<var1> <operation> <var2 || const_expr>
+
+`[var1] [operation] [var2 || const_expr]`
+
 where the operation order is:
-	<dest> <src>
+`[dest] [src]`
 e.g.
-	+ foo = 15
-	// foo is now three
-	+ foo % 5
-	// foo is now 3
+`foo = 15
+// foo is now three
+foo % 5
+foo is now 3`
