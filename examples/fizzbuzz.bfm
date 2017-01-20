@@ -1,43 +1,33 @@
-var i
-var notDone
+var i       i = 1
+var flag    flag = 1
 
-i = 1
-notDone = 1
-
-print 104
-
-print "\"FizzBuzz!\"\nby retrosegfault.tumblr.com\n"
-
-while notDone
-	var shouldPrintNum
-	shouldPrintNum = 1
-
-	var iModThree
-	iModThree = i
-	iModThree % 3
+while flag
+	var printNum    printNum = 1
+	
+	var iModThree   iModThree = i
+	iModThree % 3   iModThree == 0
 
 	if iModThree
 		print "Fizz"
-		shouldPrintNum = 0
-	endif
+		printNum = 0
+	end
 
-	var iModFive
-	iModFive = i
-	iModFive % 5
+	var iModFive    iModFive = i
+	iModFive % 5    iModFive == 0
 
 	if iModFive
 		print "Buzz"
-		shouldPrintNum = 0
-	endif
+		printNum = 0
+	end
 
-	if shouldPrintNum
+	if printNum
 		print i
-	endif
+	end
 
 	print "\n"
 
-	notDone = i
-	notDone == 101
-
 	i + 1
-endwhile
+
+	flag = i        flag == 101
+	not flag
+end
