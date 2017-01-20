@@ -4,6 +4,8 @@ var notDone
 i = 1
 notDone = 1
 
+print 104
+
 print "\"FizzBuzz!\"\nby retrosegfault.tumblr.com\n"
 
 while notDone
