@@ -384,7 +384,7 @@ get_operator_type(const char* str)
 {
 	int i;
 	for (i = 0; i < NUM_OPERATORS; i++) {
-		if (!strcmp(operators[i], str))
+		if (!strncmp(operators[i], str, strlen(operators[i])))
 			return i;
 	}
 	
@@ -619,7 +619,6 @@ int count_variables(Token* tok)
 	int res = 0;
 
 	while (tok->next) {
-		printf("Scanning token: %s\n", tok->value);
 		if (!strcmp(tok->value, "var"))
 			res++;
 
@@ -727,10 +726,9 @@ void emit_print_string(const char* str)
 enum {
 	KYWRD_VAR,
 	KYWRD_WHILE,
-	KYWRD_ENDWHILE,
+	KYWRD_END,
 	KYWRD_GOTO,
 	KYWRD_IF,
-	KYWRD_ENDIF,
 	KYWRD_NOT,
 	KYWRD_PRINT,
 	KYWRD_ARRAY,
@@ -741,10 +739,9 @@ enum {
 char keywords[NUM_KEYWORDS][15] = {
 	"var",
 	"while",
-	"endwhile",
+	"end",
 	"goto",
 	"if",
-	"endif",
 	"not",
 	"print",
 	"array",
@@ -805,6 +802,7 @@ void parse_operation(Token** token)
 		emit("[-]");
 		long a = strtol(tok->value, NULL, 0);
 		add((int)a);
+		right = temp_y;
 	} else {
 		right = variables[right_index].location;
 	}
@@ -816,12 +814,20 @@ void parse_operation(Token** token)
 		case MOP_EQU: algo = ALGO_EQU; break;
 		case MOP_MOD: algo = ALGO_MOD; break;
 		case MOP_EQUEQU: algo = ALGO_CEQU; break;
+		case MOP_ADD: algo = ALGO_ADD; break;
 	}
 
 	emit_algo(algo, left, right, -1);
 
 	*token = tok;
 }
+
+enum {
+	STACK_WHILE,
+	STACK_IF
+};
+
+int stack[4096], stack_ptr = 0;
 
 void parse_keyword(Token** token)
 {
@@ -832,12 +838,71 @@ void parse_keyword(Token** token)
 			tok = tok->next;
 			add_variable(tok->value);
 			break;
-		case KYWRD_WHILE: tok = tok->next; break;
-		case KYWRD_ENDWHILE: break;
-		case KYWRD_GOTO: tok = tok->next; break;
-		case KYWRD_IF: tok = tok->next; break;
-		case KYWRD_ENDIF: break;
-		case KYWRD_NOT: tok = tok->next; break;
+		case KYWRD_WHILE: {
+			tok = tok->next;
+			int var_index = get_variable_index(tok->value);
+			
+			if (var_index == -1)
+				fatal_error(tok->origin, "invalid identifier.");
+
+			int variable_location = variables[var_index].location;
+			move_pointer_to(variable_location);
+			emit("[");
+
+			stack[stack_ptr++] = variable_location;
+			stack[stack_ptr++] = STACK_WHILE;
+		} break;
+		case KYWRD_END: {
+			if (stack_ptr < 2)
+				fatal_error(tok->origin, "unmatched end statement.");
+
+			switch (stack[--stack_ptr]) {
+				case STACK_WHILE:
+					move_pointer_to(stack[--stack_ptr]);
+					emit("]");
+					break;
+				case STACK_IF:
+					move_pointer_to(stack[--stack_ptr]);
+					emit("[-]]");
+					break;
+			}
+		} break;
+		case KYWRD_GOTO: {
+			tok = tok->next;
+			int var_index = get_variable_index(tok->value);
+			
+			if (var_index == -1)
+				fatal_error(tok->origin, "invalid identifier.");
+
+			int variable_location = variables[var_index].location;
+			move_pointer_to(variable_location);
+		}  break;
+		case KYWRD_IF: {
+			tok = tok->next;
+			int var_index = get_variable_index(tok->value);
+			
+			if (var_index == -1)
+				fatal_error(tok->origin, "invalid identifier.");
+
+			int variable_location = variables[var_index].location;
+			
+			emit_algo(ALGO_EQU, temp_x, variable_location, -1);
+			move_pointer_to(temp_x);
+			emit("[");
+
+			stack[stack_ptr++] = temp_x;
+			stack[stack_ptr++] = STACK_IF;
+		} break;
+		case KYWRD_NOT: {
+			tok = tok->next;
+			int var_index = get_variable_index(tok->value);
+			
+			if (var_index == -1)
+				fatal_error(tok->origin, "invalid identifier.");
+
+			int variable_location = variables[var_index].location;
+			emit_algo(ALGO_NOT, variable_location, -1, -1);
+		} break;
 		case KYWRD_PRINT:
 			tok = tok->next;
 			switch (tok->type) {
@@ -851,9 +916,15 @@ void parse_keyword(Token** token)
 					emit_print_string(c);
 					break;
 				}
-				case TOK_IDENTIFIER:
-					emit_print_string(tok->value);
+				case TOK_IDENTIFIER: {
+					int var_index = get_variable_index(tok->value);
+					
+					if (var_index == -1)
+						fatal_error(tok->origin, "invalid identifier");
+
+					emit_algo(ALGO_PRINTV, var_index, -1, -1);
 					break;
+				}
 				default:
 					push_error(-1, "unexpected token \"%s\", expected a string, number, or identifier.", tok->value);
 			}
@@ -900,15 +971,27 @@ int main(int argc, char **argv)
 		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
 
 	Token *tok = tokenize(src);
-	temp_cells = count_variables(tok);
-	temp_y = temp_cells + NUM_TEMP_CELLS;
+
+	temp_cells = count_variables(tok) + 4;
+	temp_x = temp_cells - 4, temp_y = temp_x + 2;
 
 	parse(tok);
 
-	puts(output);
+	FILE* output_file = stdout;
+	
+	int index = 0;
+	while (output[index] != '\0') {
+		if (index % 80 == 0 && index != 0) {
+			fputc('\n', output_file);
+		}
+		fputc(output[index], output_file);
+		index++;
+	}
+	
+	//fclose(output_file);
 
 	while (tok->next) {
-		printf("[%s][%s]\n", token_types[tok->type], tok->value);
+		printf("\n[%s][%s]", token_types[tok->type], tok->value);
 		tok = tok->next;
 	}
 	for (int i = 0; i < num_variables; i++)
