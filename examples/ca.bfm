@@ -1,0 +1,193 @@
+print "            One Dimensional Cellular Automata in brainfuck\n"
+print "                     by retrosegfault.tumblr.com\n\n"
+
+# WIDTH 144
+# WIDTH_MAX_INDEX 143
+# NUM_GENERATIONS 255
+
+array field WIDTH
+array field_buffer WIDTH
+
+field_buffer 71 = 1 // initial condition
+
+var generation     generation = NUM_GENERATIONS
+var i
+
+var left
+var center
+var right
+
+var left_index
+var center_index
+var right_index
+var result
+var not_left
+var not_center
+var not_right
+
+while generation
+	generation - 1
+	
+	i = WIDTH
+	while i
+		i - 1
+		
+		field i = field_buffer i
+	end
+	
+	var i_not_done    i_not_done = 1
+	i = 0
+	while i_not_done
+		var temp
+		temp = field i
+		
+		if temp
+			print "X"
+		end
+		not temp
+		if temp
+			print " "
+		end
+		
+		i + 1
+		i_not_done = i
+		i_not_done == WIDTH_MAX_INDEX
+		not i_not_done
+	end
+	print "\n"
+	
+	i = WIDTH
+	while i // this loop will go through the field and do the logic
+		i - 1
+		
+		var is_i_width
+		is_i_width = i
+		is_i_width == WIDTH_MAX_INDEX
+		
+		var is_i_zero
+		is_i_zero = i
+		is_i_zero == 0
+		
+		var is_normal
+		is_normal = is_i_width
+		is_normal || is_i_zero
+		not is_normal
+		
+		if is_normal
+			left_index   = i
+			left_index   - 1
+			center_index = i
+			right_index  = i
+			right_index  + 1
+		end
+		not is_normal
+		if is_normal
+			if is_i_width
+				left_index   = i
+				left_index   - 1
+				center_index = i
+				right_index  = 0
+			end
+			if is_i_zero
+				left_index   = WIDTH_MAX_INDEX
+				center_index = i
+				right_index  = i
+				right_index  + 1
+			end
+		end
+		
+		left   = field left_index
+		center = field center_index
+		right  = field right_index
+		
+		// left center and right now hold the (wrapped) cell values
+		
+		not_left   = left      not not_left
+		not_center = center    not not_center
+		not_right  = right     not not_right
+		
+		result = 0
+		
+		// rule 90
+		if left
+			if center
+				if not_right
+					result = 1
+				end
+			end
+			if not_center
+				if not_right
+					result = 1
+				end
+			end
+		end
+		
+		if not_left
+			if center
+				if right
+					result = 1
+				end
+			end
+			if not_center
+				if right
+					result = 1
+				end
+			end
+		end
+		
+		// rule 30
+		/* if left
+			if not_center
+				if not_right
+					result = 1
+				end
+			end
+		end
+		
+		if center
+			if not_left
+				result = 1
+			end
+		end
+		
+		if right
+			if not_center
+				if not_left
+					result = 1
+				end
+			end
+		end */
+		
+		// rule 150
+		/* if left
+			if center
+				if right
+					result = 1
+				end
+			end
+			if not_center
+				if not_right
+					result = 1
+				end
+			end
+		end
+		
+		if center
+			if not_left
+				if not_right
+					result = 1
+				end
+			end
+		end
+		
+		if right
+			if not_center
+				if not_left
+					result = 1
+				end
+			end
+		end */
+		
+		field_buffer i = result
+	end
+end
