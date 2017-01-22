@@ -625,7 +625,6 @@ int count_variables(Token* tok)
 		tok = tok->next;
 	}
 
-	printf("It looks like there are %d variables.\n", res);
 	return res;
 }
 
@@ -745,7 +744,7 @@ char keywords[NUM_KEYWORDS][15] = {
 	"not",
 	"print",
 	"array",
-	"bf",
+	"fuck",
 };
 
 int get_keyword(char* str)
@@ -758,15 +757,29 @@ int get_keyword(char* str)
 
 typedef struct {
 	char* name;
-	int location;
+	int location, scope;
 } Variable;
 Variable variables[4096];
-int num_variables;
+int num_variables = 0, scope = 0;
 
 void add_variable(char* varname)
 {
+	printf("adding variable %s with scope %d\n", varname, scope);
 	variables[num_variables].location = num_variables;
+	variables[num_variables].scope = scope;
 	variables[num_variables++].name = varname;
+}
+
+void kill_variables_of_scope(int killscope)
+{
+	int numvars = num_variables;
+	for (int i = num_variables - 1; i >= 0; i--) {
+		if (variables[i].scope == killscope) {
+			num_variables--;
+		}
+	}
+
+	printf("killed %d variables, number of living variables is now %d\n", numvars - num_variables, num_variables);
 }
 
 int get_variable_index(char* varname)
@@ -777,8 +790,6 @@ int get_variable_index(char* varname)
 	}
 	return -1;
 }
-
-/* [0][0][0][0][0][0][0][0][0][0][TEMP_X][TEMP_X_INDEX][TEMP_Y][TEMP_Y_INDEX] */
 
 void parse_operation(Token** token)
 {
@@ -798,16 +809,35 @@ void parse_operation(Token** token)
 
 	int right_index = get_variable_index(tok->value);
 	if (right_index == -1) {
-		move_pointer_to(temp_y);
-		emit("[-]");
-		long a = strtol(tok->value, NULL, 0);
-		add((int)a);
-		right = temp_y;
+		if (operation == MOP_ADD) {
+			long a = strtol(tok->value, NULL, 0);
+			move_pointer_to(left);
+			add((int)a);
+			*token = tok;
+			return;
+		} if (operation == MOP_SUB) {
+			long a = strtol(tok->value, NULL, 0);
+			move_pointer_to(left);
+			add(-a);
+			*token = tok;
+			return;
+		} if (operation == MOP_EQU) {
+			long a = strtol(tok->value, NULL, 0);
+			move_pointer_to(left);
+			emit("[-]");
+			add((int)a);
+			*token = tok;
+			return;
+		} else {
+			move_pointer_to(temp_y);
+			emit("[-]");
+			long a = strtol(tok->value, NULL, 0);
+			add((int)a);
+			right = temp_y;
+		}
 	} else {
 		right = variables[right_index].location;
 	}
-
-	printf("operation %d on locations %d (%s) and %d (%s).\n", operation, left, tok->prev->prev->value, right, tok->value);
 
 	int algo;
 	switch (operation) {
@@ -829,17 +859,26 @@ enum {
 
 int stack[4096], stack_ptr = 0;
 
+#define NEXT_TOKEN(t) \
+	do { \
+		if (!(t->next)) { \
+			fatal_error(t->origin, "expected a valid token."); \
+		} else t = t->next; \
+	} while (0);
+
 void parse_keyword(Token** token)
 {
 	Token* tok = *token;
 
 	switch (get_keyword(tok->value)) {
 		case KYWRD_VAR:
-			tok = tok->next;
+			NEXT_TOKEN(tok)
+
 			add_variable(tok->value);
 			break;
 		case KYWRD_WHILE: {
-			tok = tok->next;
+			NEXT_TOKEN(tok)
+
 			int var_index = get_variable_index(tok->value);
 			
 			if (var_index == -1)
@@ -851,9 +890,11 @@ void parse_keyword(Token** token)
 
 			stack[stack_ptr++] = variable_location;
 			stack[stack_ptr++] = STACK_WHILE;
+
+			scope++;
 		} break;
 		case KYWRD_END: {
-			if (stack_ptr < 2)
+			if (stack_ptr < 1)
 				fatal_error(tok->origin, "unmatched end statement.");
 
 			switch (stack[--stack_ptr]) {
@@ -866,11 +907,16 @@ void parse_keyword(Token** token)
 					emit("[-]]");
 					break;
 			}
+
+			if (scope <= 0)
+				fatal_error(tok->origin, "unable to resolve scope.");
+
+			kill_variables_of_scope(scope--);
 		} break;
 		case KYWRD_GOTO: {
-			tok = tok->next;
+			NEXT_TOKEN(tok)
+
 			int var_index = get_variable_index(tok->value);
-			
 			if (var_index == -1)
 				fatal_error(tok->origin, "invalid identifier.");
 
@@ -878,9 +924,9 @@ void parse_keyword(Token** token)
 			move_pointer_to(variable_location);
 		}  break;
 		case KYWRD_IF: {
-			tok = tok->next;
+			NEXT_TOKEN(tok)
+
 			int var_index = get_variable_index(tok->value);
-			
 			if (var_index == -1)
 				fatal_error(tok->origin, "invalid identifier.");
 
@@ -892,11 +938,13 @@ void parse_keyword(Token** token)
 
 			stack[stack_ptr++] = temp_x;
 			stack[stack_ptr++] = STACK_IF;
+
+			scope++;
 		} break;
 		case KYWRD_NOT: {
-			tok = tok->next;
+			NEXT_TOKEN(tok)
+
 			int var_index = get_variable_index(tok->value);
-			
 			if (var_index == -1)
 				fatal_error(tok->origin, "invalid identifier.");
 
@@ -904,7 +952,9 @@ void parse_keyword(Token** token)
 			emit_algo(ALGO_NOT, variable_location, -1, -1);
 		} break;
 		case KYWRD_PRINT:
-			tok = tok->next;
+			printf("current token address: %p\nnext token address: %p\n", (void*)tok, (void*)(tok->next));
+			NEXT_TOKEN(tok)
+
 			switch (tok->type) {
 				case TOK_STRING:
 					emit_print_string(tok->value);
@@ -917,10 +967,14 @@ void parse_keyword(Token** token)
 					break;
 				}
 				case TOK_IDENTIFIER: {
+					printf("attempting to print identifier %s\n", tok->value);
+
 					int var_index = get_variable_index(tok->value);
 					
+					printf("identifier has location %d\n", var_index);
+
 					if (var_index == -1)
-						fatal_error(tok->origin, "invalid identifier");
+						fatal_error(tok->origin, "invalid identifier.");
 
 					emit_algo(ALGO_PRINTV, var_index, -1, -1);
 					break;
@@ -930,7 +984,14 @@ void parse_keyword(Token** token)
 			}
 			break;
 		case KYWRD_ARRAY: break;
-		case KYWRD_BF: break;
+		case KYWRD_BF: {
+			NEXT_TOKEN(tok)
+
+			if (tok->type != TOK_STRING)
+				push_error(tok->origin, "expected a string literal.");
+
+			emit(tok->value);
+		} break;
 	}
 
 	*token = tok;
@@ -966,11 +1027,19 @@ int main(int argc, char **argv)
 		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
 
 	char *src = load_file(input_path);
+	raw = src;
 
 	if (!src)
 		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
 
 	Token *tok = tokenize(src);
+
+/* #ifdef DEBUG
+	while (tok) {
+		printf("\n[%s][%s]", token_types[tok->type], tok->value);
+		tok = tok->next;
+	}
+#endif */
 
 	temp_cells = count_variables(tok) + 4;
 	temp_x = temp_cells - 4, temp_y = temp_x + 2;
@@ -989,13 +1058,6 @@ int main(int argc, char **argv)
 	}
 	
 	//fclose(output_file);
-
-	while (tok->next) {
-		printf("\n[%s][%s]", token_types[tok->type], tok->value);
-		tok = tok->next;
-	}
-	for (int i = 0; i < num_variables; i++)
-		printf("variable: %s at %d\n", variables[i].name, variables[i].location);
 
 	return 0;
 }
