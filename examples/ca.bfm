@@ -1,3 +1,5 @@
+/* this example does not work yet. */
+
 print "            One Dimensional Cellular Automata in brainfuck\n"
 print "                     by retrosegfault.tumblr.com\n\n"
 
@@ -12,18 +14,11 @@ field_buffer 71 = 1 // initial condition
 
 var generation     generation = NUM_GENERATIONS
 var i
-
-var left
-var center
-var right
-
-var left_index
-var center_index
-var right_index
 var result
-var not_left
-var not_center
-var not_right
+
+var left           var center           var right
+var left_index     var center_index     var right_index
+var not_left       var not_center       var not_right
 
 while generation
 	generation - 1
