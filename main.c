@@ -275,6 +275,21 @@ typedef struct struct_token {
 	struct struct_token* prev;
 } Token;
 
+#define NUM_OPERATORS 22
+char operators[NUM_OPERATORS][3] = {
+	"==", "!=",
+	"&&", "||",
+	"+=", "-=",
+	"*=", "/=",
+	"%=", "++",
+	"--", ">=",
+	"<=", "+" ,
+	"-" , "!" ,
+	"<" , ">" ,
+	"%" , "=" ,
+	"*" , "/"
+};
+
 enum { /* math operators */
 	MOP_EQUEQU, MOP_NEQU  ,
 	MOP_ANDAND, MOP_OROR  ,
@@ -365,21 +380,6 @@ is_number(const char* str)
 	
 	return result;
 }
-
-#define NUM_OPERATORS 22
-char operators[NUM_OPERATORS][3] = {
-	"==", "!=",
-	"&&", "||",
-	"+=", "-=",
-	"*=", "/=",
-	"%=", "++",
-	"--", ">=",
-	"<=", "+" ,
-	"-" , "!" ,
-	"<" , ">" ,
-	"%" , "=" ,
-	"*" , "/"
-};
 
 int
 get_operator_type(const char* str)
@@ -740,6 +740,7 @@ enum {
 	KYWRD_PRINT,
 	KYWRD_ARRAY,
 	KYWRD_BF,
+	KYWRD_DEFINE
 };
 
 #define NUM_KEYWORDS 12
@@ -753,6 +754,7 @@ char keywords[NUM_KEYWORDS][15] = {
 	"print",
 	"array",
 	"fuck",
+	"#"
 };
 
 int get_keyword(char* str)
@@ -766,20 +768,23 @@ int get_keyword(char* str)
 typedef struct {
 	char* name;
 	int location, scope;
+	enum {
+		VAR_CELL, VAR_ARRAY
+	} type;
 } Variable;
 Variable variables[4096];
 int num_variables = 0, scope = 0;
 
-void add_variable(char* varname)
+void add_variable(char* varname, int type)
 {
 	variables[num_variables].location = num_variables;
 	variables[num_variables].scope = scope;
+	variables[num_variables].type = scope;
 	variables[num_variables++].name = varname;
 }
 
 void kill_variables_of_scope(int killscope)
 {
-	int numvars = num_variables;
 	for (int i = num_variables - 1; i >= 0; i--) {
 		if (variables[i].scope == killscope) {
 			num_variables--;
@@ -796,6 +801,36 @@ int get_variable_index(char* varname)
 	return -1;
 }
 
+typedef struct {
+	char* name;
+	Token tok;
+} Definition;
+Definition definitions[4096];
+int num_definitions = 0;
+
+void add_definition(char* name, Token tok)
+{
+	definitions[num_definitions].name = malloc(strlen(name) + 1);
+	strcpy(definitions[num_definitions].name, name);
+	definitions[num_definitions++].tok = tok;
+}
+
+int get_definition_index(char* name)
+{
+	for (int i = 0; i < num_definitions; i++) {
+		if (!strcmp(definitions[i].name, name))
+			return i;
+	}
+	return -1;
+}
+
+#define NEXT_TOKEN(t) \
+	do { \
+		if (!(t->next)) { \
+			fatal_error(t->origin, "expected a valid token."); \
+		} else t = t->next; \
+	} while (0);
+
 void parse_operation(Token** token)
 {
 	Token* tok = *token;
@@ -807,27 +842,48 @@ void parse_operation(Token** token)
 		fatal_error(tok->origin, "expected an a variable identifier.\n");
 
 	left = variables[left_index].location;
-	tok = tok->next;
+	NEXT_TOKEN(tok)
 
 	operation = get_operator_type(tok->value);
-	tok = tok->next;
 
+	int algo;
+	switch (operation) {
+		case MOP_EQU: algo = ALGO_EQU; break;
+		case MOP_MOD: algo = ALGO_MOD; break;
+		case MOP_EQUEQU: algo = ALGO_CEQU; break;
+		case MOP_ADD: algo = ALGO_ADD; break;
+		case MOP_SUB: algo = ALGO_SUB; break;
+		case MOP_OROR: algo = ALGO_OR; break;
+		default: push_error(tok->origin, "unrecognized operator.\n", tok->value); return;
+	}
+
+	NEXT_TOKEN(tok)
+
+	Token* parse_tok = tok;
 	int right_index = get_variable_index(tok->value);
-	if (right_index == -1) {
+
+	int definition_index = get_definition_index(tok->value);
+	if (definition_index != -1) {
+		parse_tok = &(definitions[definition_index].tok);
+	}
+
+	if (right_index != -1) {
+		right = variables[right_index].location;
+	} else {
 		if (operation == MOP_ADD) {
-			long a = strtol(tok->value, NULL, 0);
+			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
 			add((int)a);
 			*token = tok;
 			return;
 		} if (operation == MOP_SUB) {
-			long a = strtol(tok->value, NULL, 0);
+			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
 			add(-a);
 			*token = tok;
 			return;
 		} if (operation == MOP_EQU) {
-			long a = strtol(tok->value, NULL, 0);
+			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
 			emit("[-]");
 			add((int)a);
@@ -836,21 +892,10 @@ void parse_operation(Token** token)
 		} else {
 			move_pointer_to(temp_y);
 			emit("[-]");
-			long a = strtol(tok->value, NULL, 0);
+			long a = strtol(parse_tok->value, NULL, 0);
 			add((int)a);
 			right = temp_y;
 		}
-	} else {
-		right = variables[right_index].location;
-	}
-
-	int algo;
-	switch (operation) {
-		case MOP_EQU: algo = ALGO_EQU; break;
-		case MOP_MOD: algo = ALGO_MOD; break;
-		case MOP_EQUEQU: algo = ALGO_CEQU; break;
-		case MOP_ADD: algo = ALGO_ADD; break;
-		default: push_error(tok->origin, "unrecognized operator %s\n", tok->value); return;
 	}
 
 	emit_algo(algo, left, right, -1);
@@ -865,13 +910,6 @@ enum {
 
 int stack[4096], stack_ptr = 0;
 
-#define NEXT_TOKEN(t) \
-	do { \
-		if (!(t->next)) { \
-			fatal_error(t->origin, "expected a valid token."); \
-		} else t = t->next; \
-	} while (0);
-
 void parse_keyword(Token** token)
 {
 	Token* tok = *token;
@@ -880,7 +918,11 @@ void parse_keyword(Token** token)
 		case KYWRD_VAR:
 			NEXT_TOKEN(tok)
 
-			add_variable(tok->value);
+			if (get_keyword(tok->value) != -1) {
+				push_error(tok->origin, "variable names must not be keywords.");
+			} else {
+				add_variable(tok->value, VAR_CELL);
+			}
 			break;
 		case KYWRD_WHILE: {
 			NEXT_TOKEN(tok)
@@ -992,6 +1034,14 @@ void parse_keyword(Token** token)
 				push_error(tok->origin, "expected a string literal.");
 			else
 				emit(tok->value);
+		} break;
+		case KYWRD_DEFINE: {
+			NEXT_TOKEN(tok)
+
+			char* name = tok->value;
+			NEXT_TOKEN(tok)
+
+			add_definition(name, *tok);
 		} break;
 	}
 
