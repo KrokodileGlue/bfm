@@ -4,6 +4,8 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+#define DEBUG 1
+
 void check_errors();
 
 void init_errors(char*, char*);
@@ -412,7 +414,7 @@ tokenize(char* in)
 
 	int skip_char = 0, tok_type = -1, tok_origin = -1;
 	
-	while (*end) {
+	while (*end != '\0') {
 		/* whitespace is meaningless in this language,
                    it shouldn't be tokenized. */
 		while (isspace(*start) && *start) {
@@ -458,9 +460,13 @@ tokenize(char* in)
 			}
 			
 			end += 2;
+			start = end;
+			continue;
 		} else if (!strncmp(start, "//", 2)) { /* skip single line comments by scanning for newline or NUL */
 			end += 2;
 			while (strncmp(end, "\n", 1) && *end) end++;
+			start = end;
+			continue;
 		}
 		
 		start = end;
@@ -545,7 +551,9 @@ tokenize(char* in)
 			start++;
 		}
 	}
-	current->next = NULL;
+
+	current->prev->next = NULL;
+
 	
 	return head;
 }
@@ -764,7 +772,6 @@ int num_variables = 0, scope = 0;
 
 void add_variable(char* varname)
 {
-	printf("adding variable %s with scope %d\n", varname, scope);
 	variables[num_variables].location = num_variables;
 	variables[num_variables].scope = scope;
 	variables[num_variables++].name = varname;
@@ -778,8 +785,6 @@ void kill_variables_of_scope(int killscope)
 			num_variables--;
 		}
 	}
-
-	printf("killed %d variables, number of living variables is now %d\n", numvars - num_variables, num_variables);
 }
 
 int get_variable_index(char* varname)
@@ -845,6 +850,7 @@ void parse_operation(Token** token)
 		case MOP_MOD: algo = ALGO_MOD; break;
 		case MOP_EQUEQU: algo = ALGO_CEQU; break;
 		case MOP_ADD: algo = ALGO_ADD; break;
+		default: push_error(tok->origin, "unrecognized operator %s\n", tok->value); return;
 	}
 
 	emit_algo(algo, left, right, -1);
@@ -952,7 +958,6 @@ void parse_keyword(Token** token)
 			emit_algo(ALGO_NOT, variable_location, -1, -1);
 		} break;
 		case KYWRD_PRINT:
-			printf("current token address: %p\nnext token address: %p\n", (void*)tok, (void*)(tok->next));
 			NEXT_TOKEN(tok)
 
 			switch (tok->type) {
@@ -967,11 +972,7 @@ void parse_keyword(Token** token)
 					break;
 				}
 				case TOK_IDENTIFIER: {
-					printf("attempting to print identifier %s\n", tok->value);
-
 					int var_index = get_variable_index(tok->value);
-					
-					printf("identifier has location %d\n", var_index);
 
 					if (var_index == -1)
 						fatal_error(tok->origin, "invalid identifier.");
@@ -989,8 +990,8 @@ void parse_keyword(Token** token)
 
 			if (tok->type != TOK_STRING)
 				push_error(tok->origin, "expected a string literal.");
-
-			emit(tok->value);
+			else
+				emit(tok->value);
 		} break;
 	}
 
@@ -999,16 +1000,17 @@ void parse_keyword(Token** token)
 
 void parse(Token* tok)
 {
-	while (tok->next) {
+	while (tok) {
 		if (get_keyword(tok->value) != -1) {
 			parse_keyword(&tok);
+			tok = tok->next;
 		} else if (get_variable_index(tok->value) != -1) {
 			parse_operation(&tok);
+			tok = tok->next;
 		} else {
-			printf("unhandled token %s.\n", tok->value);
+			push_error(tok->origin, "unhandled token.\n", tok->value);
+			tok = tok->next;
 		}
-
-		tok = tok->next;
 	}
 
 	check_errors();
@@ -1033,13 +1035,17 @@ int main(int argc, char **argv)
 		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
 
 	Token *tok = tokenize(src);
+	check_errors();
 
-/* #ifdef DEBUG
-	while (tok) {
-		printf("\n[%s][%s]", token_types[tok->type], tok->value);
-		tok = tok->next;
+#if 0
+	puts("\nPRINTING COMPLETE TOKEN LISTING:");
+	Token* ttok = tok;
+	while (ttok) {
+		printf("\n[%s][%s]", token_types[ttok->type], ttok->value);
+		ttok = ttok->next;
 	}
-#endif */
+	puts("\nFINISHED PRINTING COMPLETE TOKEN LISTING.");
+#endif
 
 	temp_cells = count_variables(tok) + 4;
 	temp_x = temp_cells - 4, temp_y = temp_x + 2;

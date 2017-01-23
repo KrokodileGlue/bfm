@@ -1,0 +1,130 @@
+/* this example does not work yet, because of the rewrite,
+ * but was working before, and will be used as the virtual
+ * that will execute the bytecode of HoLeeFuk. */
+
+var ip
+var running_flag
+running_flag = 1
+array mem 8
+
+mem 0 = 4
+mem 1 = 109
+
+mem 103 = 104  mem 104 = 101
+mem 105 = 108  mem 106 = 108
+mem 107 = 111  mem 108 = 32
+mem 109 = 119  mem 110 = 111
+mem 111 = 114  mem 112 = 108
+mem 113 = 100  mem 114 = 33
+mem 115 = 0
+
+var is_exit    var is_jump
+var is_mov     var is_add
+var is_prtc    var is_prts
+var is_sub
+
+var temp       var i
+
+while running_flag
+	is_exit = 0    is_jump = 1
+	is_mov  = 2    is_add  = 3
+	is_prtc = 4    is_prts = 5
+	is_sub  = 6
+	
+	var temp_mem
+	temp_mem = mem ip
+	
+	is_exit == temp_mem
+	is_jump == temp_mem
+	is_mov  == temp_mem
+	is_add  == temp_mem
+	is_prtc == temp_mem
+	is_prts == temp_mem
+	is_sub  == temp_mem
+	
+	if is_exit
+		print "EXT\n"
+		
+		running_flag = 0
+	end
+	if is_jump
+		print "JMP\n"
+		
+		ip + 1
+		i = ip
+		ip = mem i
+		ip - 1
+	end
+	if is_mov
+		print "MOV\n"
+		
+		ip + 2
+		
+		i = mem ip
+		temp = mem i
+		
+		ip - 1
+		
+		i = mem ip
+		mem i = temp
+	end
+	if is_add
+		print "ADD\n"
+		
+		ip + 2
+		
+		i = mem ip
+		temp = mem i
+		
+		ip - 1
+		
+		i = mem ip
+		mem i + temp
+		
+		ip + 1
+	end
+	if is_prtc
+		print "PRT\n"
+		
+		ip + 1
+		i = mem ip
+		
+		temp = mem i
+		
+		goto temp
+		bf .
+	end
+	if is_prts
+		print "PRTS\n"
+		
+		ip + 1
+		i = mem ip
+		
+		var c
+		c = mem i
+		while c
+			goto c
+			fuck "print_instruction."
+			
+			i + 1
+			c = mem i
+		end
+	end
+	if is_sub
+		print "SUB\n"
+		
+		ip + 2
+		
+		i = mem ip
+		temp = mem i
+		
+		ip - 1
+		
+		i = mem ip
+		mem i - temp
+		
+		ip + 1
+	end
+	
+	ip + 1
+end
