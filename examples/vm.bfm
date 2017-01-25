@@ -1,14 +1,10 @@
 /* this example does not work yet, because of the rewrite,
  * but was working before, and will be used as the virtual
- * that will execute the bytecode of HoLeeFuk. */
+ * machine that will execute the bytecode of HoLeeFuk. */
 
-var ip
-var running_flag
-running_flag = 1
 array mem 8
 
-mem 0 = 4
-mem 1 = 109
+mem 0 = 4      mem 1 = 109
 
 mem 103 = 104  mem 104 = 101
 mem 105 = 108  mem 106 = 108
@@ -23,7 +19,10 @@ var is_mov     var is_add
 var is_prtc    var is_prts
 var is_sub
 
-var temp       var i
+var ip
+var running_flag    running_flag = 1
+var temp
+var i
 
 while running_flag
 	is_exit = 0    is_jump = 1
@@ -92,7 +91,7 @@ while running_flag
 		temp = mem i
 		
 		goto temp
-		bf .
+		fuck "."
 	end
 	if is_prts
 		print "PRTS\n"

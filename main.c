@@ -78,8 +78,7 @@ Error errors[MAX_ERRORS];
 char *raw = NULL, *input_path = NULL, *output_path = NULL;
 int num_errors;
 
-void
-check_errors()
+void check_errors()
 {
 	if (num_errors) {
 		list_errors();
@@ -87,8 +86,7 @@ check_errors()
 	}
 }
 
-int
-get_line_num(int index)
+int get_line_num(int index)
 {
 	int counter = 0, i;
 	for (i = 0; i < index; i++)
@@ -98,8 +96,7 @@ get_line_num(int index)
 	return counter;
 }
 
-int
-get_column_num(int index)
+int get_column_num(int index)
 {
 	int counter = 0, i;
 	for (i = 0; i < index; i++) {
@@ -110,8 +107,7 @@ get_column_num(int index)
 	return counter;
 }
 
-int
-count_leading_whitespace(int index)
+int count_leading_whitespace(int index)
 {
 	char* start = &raw[index];
 	int counter = 0;
@@ -130,8 +126,7 @@ count_leading_whitespace(int index)
 	return counter;
 }
 
-char*
-get_line_from_index(int index)
+char* get_line_from_index(int index)
 {
 	char* start = &raw[index], *end = start;
 	
@@ -162,8 +157,7 @@ get_line_from_index(int index)
 	return buf;
 }
 
-void
-errprint(char* str) /* when printing errors, the size of tabs can be an issue.
+void errprint(char* str) /* when printing errors, the size of tabs can be an issue.
                      * This prints a string with four spaces for tabs. */
 {
 	size_t i;
@@ -175,8 +169,7 @@ errprint(char* str) /* when printing errors, the size of tabs can be an issue.
 	}
 }
 
-void
-print_location(int index)
+void print_location(int index)
 {
 	char* line = get_line_from_index(index);
 	
@@ -192,8 +185,7 @@ print_location(int index)
 }
 
 #define MAX_ERROR_LENGTH 512
-void
-fatal_error(int errloc /* the location of the error */, const char* message, ...)
+__attribute__ ((noreturn)) void fatal_error(int errloc /* the location of the error */, const char* message, ...)
 {
 	char error_buf[MAX_ERROR_LENGTH + 1];
 	
@@ -219,8 +211,7 @@ fatal_error(int errloc /* the location of the error */, const char* message, ...
 	exit(EXIT_FAILURE);
 }
 
-void
-push_error(int errloc /* the location of the error */, const char* message, ...)
+void push_error(int errloc /* the location of the error */, const char* message, ...)
 {
 	errors[num_errors].errloc = errloc;
 	errors[num_errors].error = bfm_malloc(MAX_ERROR_LENGTH + 1);
@@ -238,8 +229,7 @@ push_error(int errloc /* the location of the error */, const char* message, ...)
 	num_errors++;
 }
 
-void
-list_errors()
+void list_errors()
 {
 	int i;
 	for (i = 0; i < num_errors; i++) {
@@ -311,8 +301,7 @@ enum { /* math operators */
         || (c >= '0' && c <= '9'))
 
 /* support the escape characters \b, \t, \n, \f, \r */
-char*
-parse_escape_characters(char* str)
+char* parse_escape_characters(char* str)
 {
 	char* buf = bfm_malloc(strlen(str) + 1);
 	
@@ -357,8 +346,7 @@ parse_escape_characters(char* str)
 	return buf;
 }
 
-int
-is_number(const char* str)
+int is_number(const char* str)
 {
 	int i = 0, result = 1, is_hex = 0;
 	
@@ -381,8 +369,7 @@ is_number(const char* str)
 	return result;
 }
 
-int
-get_operator_type(const char* str)
+int get_operator_type(const char* str)
 {
 	int i;
 	for (i = 0; i < NUM_OPERATORS; i++) {
@@ -401,8 +388,7 @@ char token_types[][11] = { /* for debugging */
 	"SYMBOL    "
 };
 
-Token*
-tokenize(char* in)
+Token* tokenize(char* in)
 {
 	Token* head    = bfm_malloc(sizeof(Token));
 	Token* current = head;
@@ -553,7 +539,6 @@ tokenize(char* in)
 	}
 
 	current->prev->next = NULL;
-
 	
 	return head;
 }
@@ -620,7 +605,8 @@ void emit_char(char c)
     } while (0);
 
 #define NUM_TEMP_CELLS 10
-int cell_pointer = 0, temp_cells = 0, temp_x = 0, temp_x_index = 0, temp_y = 0, temp_y_index = 0;
+int cell_pointer = 0, temp_cells = 0, temp_x = 0, temp_x_index = 0, temp_y = 0, temp_y_index = 0,
+	arrays = 0;
 
 int count_variables(Token* tok)
 {
@@ -671,7 +657,7 @@ char algorithms[NUM_ALGORITHMS][256] = {
 	"0[-]y[x+0+y-]0[y+0-]", /* addition */
 	"0[-]y[x-0+y-]0[y+0-]", /* subtraction */
 	"0[-]x[-]y[x+0+y-]0[y+0-]", /* equalization */
-	"0[-]1[-]2[-]3[-]4[-]5[-]x[0+x-]y[1+2+y-]2[y+2-]0[>->+<[>]>[<+>-]<<[<]>-]2[x+2-]x", /* modulus */
+	"0<[-]>0[-]1[-]2[-]3[-]4[-]5[-]x[0+x-]y[1+2+y-]2[y+2-]0[>->+<[>]>[<+>-]<<[<]>-]2[x+2-]x", /* modulus */
 	"0[-]1[-]2[-]x[0+y[-0[-]1+y]0[-2+0]1[-y+1]y-x-]2[x+2-]", /* greater than*/
 	"0[-]x[0+x[-]]+0[x-0-]", /* logical not */
 	"0[-]1[-]x[1+x-]+y[1-0+y-]0[y+0-]1[x-1[-]]", /* conditional equality */
@@ -740,7 +726,8 @@ enum {
 	KYWRD_PRINT,
 	KYWRD_ARRAY,
 	KYWRD_BF,
-	KYWRD_DEFINE
+	KYWRD_DEFINE,
+	KYWRD_INPUT
 };
 
 #define NUM_KEYWORDS 12
@@ -754,7 +741,8 @@ char keywords[NUM_KEYWORDS][15] = {
 	"print",
 	"array",
 	"fuck",
-	"#"
+	"#",
+	"input"
 };
 
 int get_keyword(char* str)
@@ -767,19 +755,27 @@ int get_keyword(char* str)
 
 typedef struct {
 	char* name;
-	int location, scope;
+	int location, scope, num_elements;
 	enum {
 		VAR_CELL, VAR_ARRAY
 	} type;
 } Variable;
 Variable variables[4096];
-int num_variables = 0, scope = 0;
+int num_variables = 0, scope = 0, used_array_cells = 0, used_variable_cells = 0;
 
-void add_variable(char* varname, int type)
+void add_variable(char* varname, int num_elements, int type)
 {
-	variables[num_variables].location = num_variables;
+	if (type == VAR_CELL) {
+		variables[num_variables].location = used_variable_cells;
+		used_variable_cells++;
+	} else {
+		variables[num_variables].location = arrays + used_array_cells;
+		used_array_cells += num_elements + 4;
+	}
+
 	variables[num_variables].scope = scope;
-	variables[num_variables].type = scope;
+	variables[num_variables].type = type;
+	variables[num_variables].num_elements = num_elements;
 	variables[num_variables++].name = varname;
 }
 
@@ -824,37 +820,96 @@ int get_definition_index(char* name)
 	return -1;
 }
 
-#define NEXT_TOKEN(t) \
-	do { \
-		if (!(t->next)) { \
-			fatal_error(t->origin, "expected a valid token."); \
-		} else t = t->next; \
+#define NEXT_TOKEN(t)                                                               \
+	do {                                                                        \
+		if (!(t->next)) {                                                   \
+			push_error(t->origin, "expected a valid token to follow."); \
+			return;                                                     \
+		} else t = t->next;                                                 \
 	} while (0);
 
+#define EXPECT_TOKEN(t,str)                                                     \
+	do {                                                                    \
+		NEXT_TOKEN(t)                                                   \
+		if (strcmp(t->value,str)) {                                     \
+			push_error(t->origin, "expected token \"%s\".\n", str); \
+		}                                                               \
+	} while (0);
+
+#define SYNTAX_ASSERT(err_cond, err_str)                  \
+	do {                                              \
+		if (err_cond) {                           \
+			push_error(tok->origin, err_str); \
+			*token = tok;                     \
+			return;                           \
+		}                                         \
+	} while(0);
+
+/* all of this work for parsing arrays being done inline is bad,
+ * there should be some functions for it. */
 void parse_operation(Token** token)
 {
 	Token* tok = *token;
 
-	int left = 0, operation = 0, right = 0;
+	int left = 0, operation = 0,
+	        right = 0,
+	        array = 0; /* if the lefthand side is an array, we need to ferry
+                            * the new value to the original location. */
 
 	int left_index = get_variable_index(tok->value);
-	if (left_index == -1)
-		fatal_error(tok->origin, "expected an a variable identifier.\n");
+	
+	SYNTAX_ASSERT(left_index == -1, "expected an a variable identifier.")
 
-	left = variables[left_index].location;
+	if (variables[left_index].type == VAR_ARRAY) {
+		array = 1;
+		EXPECT_TOKEN(tok, ".")
+		NEXT_TOKEN(tok)
+
+		/* now get the index value, we must account for variables and constants */
+		if (tok->type == TOK_NUMBER) {
+			long a = strtol(tok->value, NULL, 0);
+
+			move_pointer_to(temp_x_index);
+			emit("[-]");
+			add((int)a);
+		} else if (tok->type == TOK_IDENTIFIER) {
+			int subscript_index = get_variable_index(tok->value);
+
+			SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
+			
+			emit_algo(ALGO_EQU, temp_x_index, variables[subscript_index].location, -1);
+		} else {
+			SYNTAX_ASSERT(1, "expected a valid subscript.")
+		}
+
+		emit_algo(ALGO_ARRAY_READ, temp_x, variables[left_index].location, temp_x_index); /* x = y(z) */
+		left = temp_x;
+	} else {
+		left = variables[left_index].location;
+	}
+
 	NEXT_TOKEN(tok)
 
 	operation = get_operator_type(tok->value);
 
 	int algo;
 	switch (operation) {
-		case MOP_EQU: algo = ALGO_EQU; break;
-		case MOP_MOD: algo = ALGO_MOD; break;
+		case MOP_EQU:    algo = ALGO_EQU;  break;
+		case MOP_MOD:    algo = ALGO_MOD;  break;
 		case MOP_EQUEQU: algo = ALGO_CEQU; break;
-		case MOP_ADD: algo = ALGO_ADD; break;
-		case MOP_SUB: algo = ALGO_SUB; break;
-		case MOP_OROR: algo = ALGO_OR; break;
-		default: push_error(tok->origin, "unrecognized operator.\n", tok->value); return;
+		case MOP_ADD:    algo = ALGO_ADD;  break;
+		case MOP_SUB:    algo = ALGO_SUB;  break;
+		case MOP_OROR:   algo = ALGO_OR;   break;
+		case MOP_DIV:   algo = ALGO_DIV;   break;
+		default:
+			push_error(tok->origin, "unrecognized operator.");
+			return;
+	}
+
+#define FERRY_ARRAY_BACK                                                                           \
+	if (array) {                                                                               \
+		/* x(y) = z (array write) */                                                       \
+		emit_algo(ALGO_ARRAY_WRITE, variables[left_index].location, temp_x_index, temp_x); \
 	}
 
 	NEXT_TOKEN(tok)
@@ -868,19 +923,44 @@ void parse_operation(Token** token)
 	}
 
 	if (right_index != -1) {
-		right = variables[right_index].location;
+		if (variables[right_index].type == VAR_ARRAY) {
+			EXPECT_TOKEN(tok, ".")        NEXT_TOKEN(tok)
+
+			/* now get the index value, we must account for variables and constants */
+			if (tok->type == TOK_NUMBER) {
+				long a = strtol(tok->value, NULL, 0);
+
+				move_pointer_to(temp_y_index);
+				emit("[-]");
+				add((int)a);
+			} else if (tok->type == TOK_IDENTIFIER) {
+				int subscript_index = get_variable_index(tok->value);
+				SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
+
+				emit_algo(ALGO_EQU, temp_y_index, variables[subscript_index].location, -1);
+			} else {
+				SYNTAX_ASSERT(1, "not a valid subscript.")
+			}
+
+			emit_algo(ALGO_ARRAY_READ, temp_y, variables[right_index].location, temp_y_index); /* x = y(z) */
+			right = temp_y;
+		} else {
+			right = variables[right_index].location;
+		}
 	} else {
 		if (operation == MOP_ADD) {
 			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
 			add((int)a);
 			*token = tok;
+			FERRY_ARRAY_BACK
 			return;
 		} if (operation == MOP_SUB) {
 			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
 			add(-a);
 			*token = tok;
+			FERRY_ARRAY_BACK
 			return;
 		} if (operation == MOP_EQU) {
 			long a = strtol(parse_tok->value, NULL, 0);
@@ -888,6 +968,7 @@ void parse_operation(Token** token)
 			emit("[-]");
 			add((int)a);
 			*token = tok;
+			FERRY_ARRAY_BACK
 			return;
 		} else {
 			move_pointer_to(temp_y);
@@ -899,6 +980,8 @@ void parse_operation(Token** token)
 	}
 
 	emit_algo(algo, left, right, -1);
+
+	FERRY_ARRAY_BACK
 
 	*token = tok;
 }
@@ -918,32 +1001,29 @@ void parse_keyword(Token** token)
 		case KYWRD_VAR:
 			NEXT_TOKEN(tok)
 
-			if (get_keyword(tok->value) != -1) {
-				push_error(tok->origin, "variable names must not be keywords.");
-			} else {
-				add_variable(tok->value, VAR_CELL);
-			}
+			SYNTAX_ASSERT(get_keyword(tok->value) != -1, "variable names must not be keywords.")
+
+			add_variable(tok->value, -1, VAR_CELL);
 			break;
 		case KYWRD_WHILE: {
 			NEXT_TOKEN(tok)
 
 			int var_index = get_variable_index(tok->value);
 			
-			if (var_index == -1)
-				fatal_error(tok->origin, "invalid identifier.");
+			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
 
 			int variable_location = variables[var_index].location;
-			move_pointer_to(variable_location);
-			emit("[");
+				move_pointer_to(variable_location);
+				emit("[");
 
-			stack[stack_ptr++] = variable_location;
-			stack[stack_ptr++] = STACK_WHILE;
+				stack[stack_ptr++] = variable_location;
+				stack[stack_ptr++] = STACK_WHILE;
 
-			scope++;
+				scope++;
+			
 		} break;
 		case KYWRD_END: {
-			if (stack_ptr < 1)
-				fatal_error(tok->origin, "unmatched end statement.");
+			SYNTAX_ASSERT(stack_ptr < 1, "unmatched end statement.")
 
 			switch (stack[--stack_ptr]) {
 				case STACK_WHILE:
@@ -957,7 +1037,7 @@ void parse_keyword(Token** token)
 			}
 
 			if (scope <= 0)
-				fatal_error(tok->origin, "unable to resolve scope.");
+				fatal_error(tok->origin, "internal scope error.");
 
 			kill_variables_of_scope(scope--);
 		} break;
@@ -965,8 +1045,8 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 
 			int var_index = get_variable_index(tok->value);
-			if (var_index == -1)
-				fatal_error(tok->origin, "invalid identifier.");
+
+			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
 
 			int variable_location = variables[var_index].location;
 			move_pointer_to(variable_location);
@@ -975,8 +1055,7 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 
 			int var_index = get_variable_index(tok->value);
-			if (var_index == -1)
-				fatal_error(tok->origin, "invalid identifier.");
+			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
 
 			int variable_location = variables[var_index].location;
 			
@@ -993,8 +1072,7 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 
 			int var_index = get_variable_index(tok->value);
-			if (var_index == -1)
-				fatal_error(tok->origin, "invalid identifier.");
+			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
 
 			int variable_location = variables[var_index].location;
 			emit_algo(ALGO_NOT, variable_location, -1, -1);
@@ -1015,25 +1093,63 @@ void parse_keyword(Token** token)
 				}
 				case TOK_IDENTIFIER: {
 					int var_index = get_variable_index(tok->value);
+					int left = 0;
 
-					if (var_index == -1)
-						fatal_error(tok->origin, "invalid identifier.");
+					SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
 
-					emit_algo(ALGO_PRINTV, var_index, -1, -1);
+					if (variables[var_index].type == VAR_ARRAY) {
+						EXPECT_TOKEN(tok, ".")
+						NEXT_TOKEN(tok)
+
+						if (tok->type == TOK_NUMBER) {
+							long a = strtol(tok->value, NULL, 0);
+							move_pointer_to(temp_x_index);
+							emit("[-]");
+							add((int)a);
+						} else if (tok->type == TOK_IDENTIFIER) {
+							int subscript_index = get_variable_index(tok->value);
+
+							SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
+							emit_algo(ALGO_EQU, temp_x_index, variables[subscript_index].location, -1);
+						} else {
+							SYNTAX_ASSERT(1, "expected a number or an identifier.")
+						}
+
+						emit_algo(ALGO_ARRAY_READ, temp_x, variables[var_index].location, temp_x_index); /* x = y(z) */
+						left = temp_x;
+					} else {
+						left = variables[var_index].location;
+					}
+
+					emit_algo(ALGO_PRINTV, left, -1, -1);
 					break;
 				}
 				default:
 					push_error(-1, "unexpected token \"%s\", expected a string, number, or identifier.", tok->value);
 			}
 			break;
-		case KYWRD_ARRAY: break;
+		case KYWRD_ARRAY: {
+			NEXT_TOKEN(tok)
+
+			char* name = tok->value;
+			NEXT_TOKEN(tok)
+
+			Token* parse_tok = tok;
+			
+			int definition_index = get_definition_index(tok->value);
+			if (definition_index != -1) {
+				parse_tok = &(definitions[definition_index].tok);
+			}
+
+			long array_len = strtol(tok->value, NULL, 0);
+			add_variable(name, (int)array_len, VAR_ARRAY);
+		} break;
 		case KYWRD_BF: {
 			NEXT_TOKEN(tok)
 
-			if (tok->type != TOK_STRING)
-				push_error(tok->origin, "expected a string literal.");
-			else
-				emit(tok->value);
+			SYNTAX_ASSERT(tok->type != TOK_STRING, "expected a string literal.")
+			
+			emit(tok->value);
 		} break;
 		case KYWRD_DEFINE: {
 			NEXT_TOKEN(tok)
@@ -1042,6 +1158,16 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 
 			add_definition(name, *tok);
+		} break;
+		case KYWRD_INPUT: {
+			NEXT_TOKEN(tok)
+
+			int var_index = get_variable_index(tok->value);
+
+			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
+			
+			move_pointer_to(variables[var_index].location);
+			emit(",");
 		} break;
 	}
 
@@ -1058,7 +1184,7 @@ void parse(Token* tok)
 			parse_operation(&tok);
 			tok = tok->next;
 		} else {
-			push_error(tok->origin, "unhandled token.\n", tok->value);
+			push_error(tok->origin, "unexpected token.", tok->value);
 			tok = tok->next;
 		}
 	}
@@ -1088,17 +1214,19 @@ int main(int argc, char **argv)
 	check_errors();
 
 #if 0
-	puts("\nPRINTING COMPLETE TOKEN LISTING:");
+	puts("\nCOMPLETE TOKEN LISTING:");
 	Token* ttok = tok;
 	while (ttok) {
 		printf("\n[%s][%s]", token_types[ttok->type], ttok->value);
 		ttok = ttok->next;
 	}
-	puts("\nFINISHED PRINTING COMPLETE TOKEN LISTING.");
+	puts("\nFINISHED COMPLETE TOKEN LISTING.");
 #endif
 
 	temp_cells = count_variables(tok) + 4;
-	temp_x = temp_cells - 4, temp_y = temp_x + 2;
+	temp_x       = temp_cells - 4,   temp_y = temp_cells - 2;
+	temp_x_index = temp_x + 1,       temp_y_index = temp_y + 1;
+	arrays = temp_cells + NUM_TEMP_CELLS;
 
 	parse(tok);
 
