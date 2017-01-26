@@ -1,4 +1,4 @@
-var i       i = 1
+var i       i    = 1
 var flag    flag = 1
 
 # LIMIT 101

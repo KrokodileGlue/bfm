@@ -1,5 +1,5 @@
 # bfm
-A simple macro language that generates brainfuck code, supporting // and /**/ style comments, control characters in strings, scoped variables, control constructs (if, while), and arrays (WIP). The language has many algorithms built in, such as addition, subtraction, multiplication, division, modulus, numeric cell printing, and more. Brainfuck code may be embedded into the program with the fuck keyword, like `fuck ">>>+++."`, and you may move the pointer to a variable with the goto keyword.  
+A macro language that generates brainfuck code, supporting // and /**/ style comments, control characters in strings, scoped variables, control constructs (if, while), and arrays. The language has many algorithms built in, such as addition, subtraction, multiplication, division, modulus, numeric cell printing, and more.   
 You can see the examples for tips on structuring this type of code, but the language itsself is not entirely finished yet.  
 
 ## syntax
@@ -32,3 +32,5 @@ Which just means that whenever the language is trying to resolve a righthand ide
     # print_keyword print
     print_keyword "test"
 would not.
+
+Arrays are currently subscripted with a period, and there seem to be some bugs that need working out with them.
