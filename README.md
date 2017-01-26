@@ -32,5 +32,3 @@ Which just means that whenever the language is trying to resolve a righthand ide
     # print_keyword print
     print_keyword "test"
 would not.
-
-Arrays are currently subscripted with a period, and there seem to be some bugs that need working out with them.
