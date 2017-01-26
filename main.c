@@ -770,7 +770,7 @@ void add_variable(char* varname, int num_elements, int type)
 		used_variable_cells++;
 	} else {
 		variables[num_variables].location = arrays + used_array_cells;
-		used_array_cells += num_elements + 4;
+		used_array_cells += num_elements + 5;
 	}
 
 	variables[num_variables].scope = scope;
@@ -862,7 +862,7 @@ void parse_operation(Token** token)
 
 	if (variables[left_index].type == VAR_ARRAY) {
 		array = 1;
-		EXPECT_TOKEN(tok, ".")
+		EXPECT_TOKEN(tok, "[")
 		NEXT_TOKEN(tok)
 
 		/* now get the index value, we must account for variables and constants */
@@ -882,6 +882,8 @@ void parse_operation(Token** token)
 			SYNTAX_ASSERT(1, "expected a valid subscript.")
 		}
 
+		EXPECT_TOKEN(tok, "]")
+
 		emit_algo(ALGO_ARRAY_READ, temp_x, variables[left_index].location, temp_x_index); /* x = y(z) */
 		left = temp_x;
 	} else {
@@ -900,7 +902,7 @@ void parse_operation(Token** token)
 		case MOP_ADD:    algo = ALGO_ADD;  break;
 		case MOP_SUB:    algo = ALGO_SUB;  break;
 		case MOP_OROR:   algo = ALGO_OR;   break;
-		case MOP_DIV:   algo = ALGO_DIV;   break;
+		case MOP_DIV:    algo = ALGO_DIV;  break;
 		default:
 			push_error(tok->origin, "unrecognized operator.");
 			return;
@@ -924,7 +926,7 @@ void parse_operation(Token** token)
 
 	if (right_index != -1) {
 		if (variables[right_index].type == VAR_ARRAY) {
-			EXPECT_TOKEN(tok, ".")        NEXT_TOKEN(tok)
+			EXPECT_TOKEN(tok, "[")        NEXT_TOKEN(tok)
 
 			/* now get the index value, we must account for variables and constants */
 			if (tok->type == TOK_NUMBER) {
@@ -941,6 +943,8 @@ void parse_operation(Token** token)
 			} else {
 				SYNTAX_ASSERT(1, "not a valid subscript.")
 			}
+
+			EXPECT_TOKEN(tok, "]")
 
 			emit_algo(ALGO_ARRAY_READ, temp_y, variables[right_index].location, temp_y_index); /* x = y(z) */
 			right = temp_y;
@@ -1098,7 +1102,7 @@ void parse_keyword(Token** token)
 					SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
 
 					if (variables[var_index].type == VAR_ARRAY) {
-						EXPECT_TOKEN(tok, ".")
+						EXPECT_TOKEN(tok, "[")
 						NEXT_TOKEN(tok)
 
 						if (tok->type == TOK_NUMBER) {
@@ -1114,6 +1118,8 @@ void parse_keyword(Token** token)
 						} else {
 							SYNTAX_ASSERT(1, "expected a number or an identifier.")
 						}
+
+						EXPECT_TOKEN(tok, "]")
 
 						emit_algo(ALGO_ARRAY_READ, temp_x, variables[var_index].location, temp_x_index); /* x = y(z) */
 						left = temp_x;
@@ -1141,7 +1147,7 @@ void parse_keyword(Token** token)
 				parse_tok = &(definitions[definition_index].tok);
 			}
 
-			long array_len = strtol(tok->value, NULL, 0);
+			long array_len = strtol(parse_tok->value, NULL, 0);
 			add_variable(name, (int)array_len, VAR_ARRAY);
 		} break;
 		case KYWRD_BF: {

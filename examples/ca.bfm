@@ -1,16 +1,14 @@
-/* this example does not work yet. */
-
 print "            One Dimensional Cellular Automata in brainfuck\n"
 print "                     by retrosegfault.tumblr.com\n\n"
 
-# WIDTH 144
-# WIDTH_MAX_INDEX 143
-# NUM_GENERATIONS 255
+# WIDTH 68
+# WIDTH_MAX_INDEX 67
+# NUM_GENERATIONS 64
 
 array field WIDTH
 array field_buffer WIDTH
 
-field_buffer 71 = 1 // initial condition
+field_buffer[34] = 1 // initial condition
 
 var generation     generation = NUM_GENERATIONS
 var i
@@ -27,17 +25,17 @@ while generation
 	while i
 		i - 1
 		
-		field i = field_buffer i
+		field[i] = field_buffer[i]
 	end
-	
+
 	var i_not_done    i_not_done = 1
 	i = 0
 	while i_not_done
 		var temp
-		temp = field i
+		temp = field[i]
 		
 		if temp
-			print "X"
+			print "#"
 		end
 		not temp
 		if temp
@@ -45,8 +43,7 @@ while generation
 		end
 		
 		i + 1
-		i_not_done = i
-		i_not_done == WIDTH_MAX_INDEX
+		i_not_done = i    i_not_done == WIDTH_MAX_INDEX
 		not i_not_done
 	end
 	print "\n"
@@ -55,14 +52,11 @@ while generation
 	while i // this loop will go through the field and do the logic
 		i - 1
 		
-		var is_i_width
-		is_i_width = i
+		var is_i_width      is_i_width = i
+		var is_i_zero       is_i_zero  = i
+		is_i_zero  == 0
 		is_i_width == WIDTH_MAX_INDEX
-		
-		var is_i_zero
-		is_i_zero = i
-		is_i_zero == 0
-		
+
 		var is_normal
 		is_normal = is_i_width
 		is_normal || is_i_zero
@@ -91,9 +85,9 @@ while generation
 			end
 		end
 		
-		left   = field left_index
-		center = field center_index
-		right  = field right_index
+		left   = field[left_index]
+		center = field[center_index]
+		right  = field[right_index]
 		
 		// left center and right now hold the (wrapped) cell values
 		
@@ -104,7 +98,7 @@ while generation
 		result = 0
 		
 		// rule 90
-		if left
+		/* if left
 			if center
 				if not_right
 					result = 1
@@ -128,7 +122,7 @@ while generation
 					result = 1
 				end
 			end
-		end
+		end */
 		
 		// rule 30
 		/* if left
@@ -154,7 +148,7 @@ while generation
 		end */
 		
 		// rule 150
-		/* if left
+		if left
 			if center
 				if right
 					result = 1
@@ -181,8 +175,8 @@ while generation
 					result = 1
 				end
 			end
-		end */
+		end
 		
-		field_buffer i = result
+		field_buffer[i] = result
 	end
 end
