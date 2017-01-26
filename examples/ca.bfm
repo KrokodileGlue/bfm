@@ -3,12 +3,11 @@ print "                     by retrosegfault.tumblr.com\n\n"
 
 # WIDTH 68
 # WIDTH_MAX_INDEX 67
-# NUM_GENERATIONS 64
+# NUM_GENERATIONS 255
 
-array field WIDTH
-array field_buffer WIDTH
+array field 136
 
-field_buffer[34] = 1 // initial condition
+field[102] = 1 // initial condition
 
 var generation     generation = NUM_GENERATIONS
 var i
@@ -25,7 +24,9 @@ while generation
 	while i
 		i - 1
 		
-		field[i] = field_buffer[i]
+		var index    index = i
+		index + WIDTH
+		field[i] = field[index]
 	end
 
 	var i_not_done    i_not_done = 1
@@ -98,7 +99,7 @@ while generation
 		result = 0
 		
 		// rule 90
-		/* if left
+		if left
 			if center
 				if not_right
 					result = 1
@@ -122,7 +123,7 @@ while generation
 					result = 1
 				end
 			end
-		end */
+		end
 		
 		// rule 30
 		/* if left
@@ -148,7 +149,7 @@ while generation
 		end */
 		
 		// rule 150
-		if left
+		/* if left
 			if center
 				if right
 					result = 1
@@ -175,8 +176,11 @@ while generation
 					result = 1
 				end
 			end
-		end
+		end */
+
+		var index    index = i
+		index + WIDTH
 		
-		field_buffer[i] = result
+		field[index] = result
 	end
 end

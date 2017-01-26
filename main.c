@@ -581,6 +581,33 @@ void emit_char(char c)
 	emit(buf);
 }
 
+#define CAN_BE_CANCELLED(c) ( \
+    c == '<' || c == '>'      \
+    || c == '+' || c == '-')
+
+int sanitize(char* str)
+{
+	reset_emit();
+	int str_len = strlen(str);
+	
+	char* c = str;
+	while (*c != '\0') {
+		if (CAN_BE_CANCELLED(*c)) {
+			c = scrub_movements(c);
+		} else if (*c == ']') {
+			while (*c == ']') {
+				emit_char(*c++);
+			}
+
+			if (*c == '[')
+				c = scrub_block(c);
+		} else
+			emit_char(*c++);
+	}
+
+	return str_len - strlen(sanitized);
+}
+
 #define IS_DIGIT(c) \
 	(c >= '0' && c <= '9')
 
