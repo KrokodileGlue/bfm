@@ -380,6 +380,7 @@ int get_operator_type(const char* str)
 	return -1;
 }
 
+#ifdef DEBUG
 char token_types[][11] = { /* for debugging */
 	"IDENTIFIER",
 	"NUMBER    ",
@@ -387,6 +388,7 @@ char token_types[][11] = { /* for debugging */
 	"OPERATOR  ",
 	"SYMBOL    "
 };
+#endif
 
 Token* tokenize(char* in)
 {
@@ -606,7 +608,7 @@ void emit_char(char c)
 
 #define NUM_TEMP_CELLS 10
 int cell_pointer = 0, temp_cells = 0, temp_x = 0, temp_x_index = 0, temp_y = 0, temp_y_index = 0,
-	arrays = 0;
+	arrays = 0, if_cell;
 
 int count_variables(Token* tok)
 {
@@ -727,7 +729,8 @@ enum {
 	KYWRD_ARRAY,
 	KYWRD_BF,
 	KYWRD_DEFINE,
-	KYWRD_INPUT
+	KYWRD_INPUT,
+	KYWRD_ELSE
 };
 
 #define NUM_KEYWORDS 12
@@ -742,7 +745,8 @@ char keywords[NUM_KEYWORDS][15] = {
 	"array",
 	"fuck",
 	"define",
-	"input"
+	"input",
+	"else"
 };
 
 int get_keyword(char* str)
@@ -1169,6 +1173,8 @@ void parse_keyword(Token** token)
 				parse_tok = &(definitions[definition_index].tok);
 			}
 
+			SYNTAX_ASSERT(parse_tok->type == TOK_NUMBER, "expected a number or constant identifier.")
+
 			long array_len = strtol(parse_tok->value, NULL, 0);
 			add_variable(name, (int)array_len, VAR_ARRAY);
 		} break;
@@ -1197,6 +1203,9 @@ void parse_keyword(Token** token)
 			move_pointer_to(variables[var_index].location);
 			emit(",");
 		} break;
+		case KYWRD_ELSE: {
+
+		} break;
 	}
 
 	*token = tok;
@@ -1205,10 +1214,10 @@ void parse_keyword(Token** token)
 void parse(Token* tok)
 {
 	while (tok) {
-		if (get_keyword(tok->value) != -1) {
+		if (tok->type == TOK_IDENTIFIER && get_keyword(tok->value) != -1) {
 			parse_keyword(&tok);
 			tok = tok->next;
-		} else if (get_variable_index(tok->value) != -1) {
+		} else if (tok->type == TOK_IDENTIFIER && get_variable_index(tok->value) != -1) {
 			parse_operation(&tok);
 			tok = tok->next;
 		} else {
