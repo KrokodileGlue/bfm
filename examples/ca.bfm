@@ -1,9 +1,9 @@
 print "            One Dimensional Cellular Automata in brainfuck\n"
 print "                     by retrosegfault.tumblr.com\n\n"
 
-# WIDTH 68
-# WIDTH_MAX_INDEX 67
-# NUM_GENERATIONS 255
+define WIDTH 68
+define WIDTH_MAX_INDEX 67
+define NUM_GENERATIONS 50
 
 array field 136
 
@@ -99,7 +99,7 @@ while generation
 		result = 0
 		
 		// rule 90
-		if left
+		/* if left
 			if center
 				if not_right
 					result = 1
@@ -123,7 +123,7 @@ while generation
 					result = 1
 				end
 			end
-		end
+		end */
 		
 		// rule 30
 		/* if left
@@ -149,7 +149,7 @@ while generation
 		end */
 		
 		// rule 150
-		/* if left
+		if left
 			if center
 				if right
 					result = 1
@@ -176,7 +176,7 @@ while generation
 					result = 1
 				end
 			end
-		end */
+		end
 
 		var index    index = i
 		index + WIDTH

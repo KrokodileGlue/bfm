@@ -581,33 +581,6 @@ void emit_char(char c)
 	emit(buf);
 }
 
-#define CAN_BE_CANCELLED(c) ( \
-    c == '<' || c == '>'      \
-    || c == '+' || c == '-')
-
-int sanitize(char* str)
-{
-	reset_emit();
-	int str_len = strlen(str);
-	
-	char* c = str;
-	while (*c != '\0') {
-		if (CAN_BE_CANCELLED(*c)) {
-			c = scrub_movements(c);
-		} else if (*c == ']') {
-			while (*c == ']') {
-				emit_char(*c++);
-			}
-
-			if (*c == '[')
-				c = scrub_block(c);
-		} else
-			emit_char(*c++);
-	}
-
-	return str_len - strlen(sanitized);
-}
-
 #define IS_DIGIT(c) \
 	(c >= '0' && c <= '9')
 
@@ -762,13 +735,13 @@ char keywords[NUM_KEYWORDS][15] = {
 	"var",
 	"while",
 	"end",
-	"goto",
+	"point",
 	"if",
 	"not",
 	"print",
 	"array",
 	"fuck",
-	"#",
+	"define",
 	"input"
 };
 
@@ -872,35 +845,33 @@ int get_definition_index(char* name)
 		}                                         \
 	} while(0);
 
-/* all of this work for parsing arrays being done inline is bad,
- * there should be some functions for it. */
-void parse_operation(Token** token)
+void parse_lefthand_side(Token** token, int* left, int* left_index, int* array)
 {
 	Token* tok = *token;
 
-	int left = 0, operation = 0,
-	        right = 0,
-	        array = 0; /* if the lefthand side is an array, we need to ferry
-                            * the new value to the original location. */
+	*left_index = get_variable_index(tok->value);
+	SYNTAX_ASSERT(*left_index == -1, "expected an a variable identifier.")
 
-	int left_index = get_variable_index(tok->value);
-	
-	SYNTAX_ASSERT(left_index == -1, "expected an a variable identifier.")
-
-	if (variables[left_index].type == VAR_ARRAY) {
-		array = 1;
+	if (variables[*left_index].type == VAR_ARRAY) {
+		*array = 1;
 		EXPECT_TOKEN(tok, "[")
 		NEXT_TOKEN(tok)
 
+		Token* parse_tok = tok;
+		int definition_index = get_definition_index(tok->value);
+		if (definition_index != -1) {
+			parse_tok = &(definitions[definition_index].tok);
+		}
+
 		/* now get the index value, we must account for variables and constants */
-		if (tok->type == TOK_NUMBER) {
-			long a = strtol(tok->value, NULL, 0);
+		if (parse_tok->type == TOK_NUMBER) {
+			long a = strtol(parse_tok->value, NULL, 0);
 
 			move_pointer_to(temp_x_index);
 			emit("[-]");
 			add((int)a);
-		} else if (tok->type == TOK_IDENTIFIER) {
-			int subscript_index = get_variable_index(tok->value);
+		} else if (parse_tok->type == TOK_IDENTIFIER) {
+			int subscript_index = get_variable_index(parse_tok->value);
 
 			SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
 			
@@ -911,11 +882,26 @@ void parse_operation(Token** token)
 
 		EXPECT_TOKEN(tok, "]")
 
-		emit_algo(ALGO_ARRAY_READ, temp_x, variables[left_index].location, temp_x_index); /* x = y(z) */
-		left = temp_x;
+		emit_algo(ALGO_ARRAY_READ, temp_x, variables[*left_index].location, temp_x_index); /* x = y(z) */
+		*left = temp_x;
 	} else {
-		left = variables[left_index].location;
+		*left = variables[*left_index].location;
 	}
+
+	*token = tok;
+}
+
+void parse_operation(Token** token)
+{
+	Token* tok = *token;
+
+	int left = 0, operation = 0,
+	        right = 0,
+	        array = 0; /* if the lefthand side is an array, we need to ferry
+                            * the new value to the original location. */
+
+	int left_index = 0;
+	parse_lefthand_side(&tok, &left, &left_index, &array);
 
 	NEXT_TOKEN(tok)
 
@@ -944,26 +930,33 @@ void parse_operation(Token** token)
 	NEXT_TOKEN(tok)
 
 	Token* parse_tok = tok;
-	int right_index = get_variable_index(tok->value);
-
 	int definition_index = get_definition_index(tok->value);
 	if (definition_index != -1) {
 		parse_tok = &(definitions[definition_index].tok);
 	}
 
+	int right_index = get_variable_index(tok->value);
+
 	if (right_index != -1) {
 		if (variables[right_index].type == VAR_ARRAY) {
-			EXPECT_TOKEN(tok, "[")        NEXT_TOKEN(tok)
+			EXPECT_TOKEN(tok, "[")
+			NEXT_TOKEN(tok)
+
+			parse_tok = tok;
+			definition_index = get_definition_index(tok->value);
+			if (definition_index != -1) {
+				parse_tok = &(definitions[definition_index].tok);
+			}
 
 			/* now get the index value, we must account for variables and constants */
-			if (tok->type == TOK_NUMBER) {
-				long a = strtol(tok->value, NULL, 0);
+			if (parse_tok->type == TOK_NUMBER) {
+				long a = strtol(parse_tok->value, NULL, 0);
 
 				move_pointer_to(temp_y_index);
 				emit("[-]");
 				add((int)a);
-			} else if (tok->type == TOK_IDENTIFIER) {
-				int subscript_index = get_variable_index(tok->value);
+			} else if (parse_tok->type == TOK_IDENTIFIER) {
+				int subscript_index = get_variable_index(parse_tok->value);
 				SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
 
 				emit_algo(ALGO_EQU, temp_y_index, variables[subscript_index].location, -1);
@@ -979,6 +972,8 @@ void parse_operation(Token** token)
 			right = variables[right_index].location;
 		}
 	} else {
+		SYNTAX_ASSERT(parse_tok->type != TOK_NUMBER, "invalid identifier.")
+
 		if (operation == MOP_ADD) {
 			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
@@ -1044,13 +1039,13 @@ void parse_keyword(Token** token)
 			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
 
 			int variable_location = variables[var_index].location;
-				move_pointer_to(variable_location);
-				emit("[");
+			move_pointer_to(variable_location);
+			emit("[");
 
-				stack[stack_ptr++] = variable_location;
-				stack[stack_ptr++] = STACK_WHILE;
+			stack[stack_ptr++] = variable_location;
+			stack[stack_ptr++] = STACK_WHILE;
 
-				scope++;
+			scope++;
 			
 		} break;
 		case KYWRD_END: {
@@ -1273,7 +1268,7 @@ int main(int argc, char **argv)
 		fputc(output[index], output_file);
 		index++;
 	}
-	
+
 	//fclose(output_file);
 
 	return 0;
