@@ -606,6 +606,80 @@ void emit_char(char c)
         while (!IS_BF_COMMAND(*c) && *c) c++; \
     } while (0);
 
+#define ADD(a, c) \
+    if (a >= 0) { \
+        for (int counter = 0; counter < abs(a); counter++) { \
+            *c++ = '+'; \
+        } \
+    } else { \
+    	for (int counter = 0; counter < abs(a); counter++) { \
+            *c++ = '-'; \
+        } \
+    }
+
+#define MOVE_PTR(a, c) \
+    if (a >= 0) { \
+        for (int counter = 0; counter < abs(a); counter++) { \
+            *c++ = '>'; \
+        } \
+    } else { \
+    	for (int counter = 0; counter < abs(a); counter++) { \
+            *c++ = '<'; \
+        } \
+    }
+
+void sanitize(char* str)
+{
+	char* buf = malloc(strlen(str) + 1);
+
+	size_t starting_len;
+	char* i, *out;
+
+scrub:
+	starting_len = strlen(str);
+	i = str, out = buf;
+
+	while (*i != '\0') {
+		if (IS_CONTRACTABLE(*i)) {
+			if (*i == '+' || *i == '-') {
+				int sum = 0;
+				while (*i == '+' || *i == '-') {
+					if (*i == '+') sum++;
+					else sum--;
+					i++;
+				}
+				ADD(sum, out)
+			} else {
+				int sum = 0;
+				while (*i == '>' || *i == '<') {
+					if (*i == '>') sum++;
+					else sum--;
+					i++;
+				}
+				MOVE_PTR(sum, out)
+			}
+		} else if (!strncmp(i, "][", 2)) {
+			i += 2;
+			int depth = 1;
+			while (*i != '\0' && depth) {
+				if (*i == '[') depth++;
+				else if (*i == ']') depth--;
+				i++;
+			}
+			i--;
+		} else if (IS_BF_COMMAND(*i)) {
+			*out++ = *i++;
+		} else {
+			i++;
+		}
+	}
+	*out = '\0';
+	strcpy(str, buf);
+
+	if (strlen(str) < starting_len)
+		goto scrub;
+}
+
 #define NUM_TEMP_CELLS 10
 int cell_pointer = 0, temp_cells = 0, temp_x = 0, temp_x_index = 0, temp_y = 0, temp_y_index = 0,
 	arrays = 0, if_cell;
@@ -1173,7 +1247,7 @@ void parse_keyword(Token** token)
 				parse_tok = &(definitions[definition_index].tok);
 			}
 
-			SYNTAX_ASSERT(parse_tok->type == TOK_NUMBER, "expected a number or constant identifier.")
+			SYNTAX_ASSERT(parse_tok->type != TOK_NUMBER, "expected a number or constant identifier.")
 
 			long array_len = strtol(parse_tok->value, NULL, 0);
 			add_variable(name, (int)array_len, VAR_ARRAY);
@@ -1204,7 +1278,7 @@ void parse_keyword(Token** token)
 			emit(",");
 		} break;
 		case KYWRD_ELSE: {
-
+			// TODO: this thing
 		} break;
 	}
 
@@ -1266,6 +1340,7 @@ int main(int argc, char **argv)
 	arrays = temp_cells + NUM_TEMP_CELLS;
 
 	parse(tok);
+	sanitize(output);
 
 	FILE* output_file = stdout;
 	
