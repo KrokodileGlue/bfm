@@ -1140,9 +1140,6 @@ void parse_keyword(Token** token)
 					break;
 			}
 
-			if (scope <= 0)
-				fatal_error(tok->origin, "internal scope error.");
-
 			kill_variables_of_scope(scope--);
 		} break;
 		case KYWRD_GOTO: {
@@ -1334,7 +1331,7 @@ int main(int argc, char **argv)
 	puts("\nFINISHED COMPLETE TOKEN LISTING.");
 #endif
 
-	temp_cells = count_variables(tok) + 4;
+	temp_cells   = count_variables(tok) + 4;
 	temp_x       = temp_cells - 4,   temp_y = temp_cells - 2;
 	temp_x_index = temp_x + 1,       temp_y_index = temp_y + 1;
 	arrays = temp_cells + NUM_TEMP_CELLS;

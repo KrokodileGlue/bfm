@@ -58,32 +58,17 @@ while generation
 		is_i_zero  == 0
 		is_i_width == WIDTH_MAX_INDEX
 
-		var is_normal
-		is_normal = is_i_width
-		is_normal || is_i_zero
-		not is_normal
+		left_index   = i
+		left_index   - 1
+		center_index = i
+		right_index  = i
+		right_index  + 1
 		
-		if is_normal
-			left_index   = i
-			left_index   - 1
-			center_index = i
-			right_index  = i
-			right_index  + 1
+		if is_i_width
+			right_index  = 0
 		end
-		not is_normal
-		if is_normal
-			if is_i_width
-				left_index   = i
-				left_index   - 1
-				center_index = i
-				right_index  = 0
-			end
-			if is_i_zero
-				left_index   = WIDTH_MAX_INDEX
-				center_index = i
-				right_index  = i
-				right_index  + 1
-			end
+		if is_i_zero
+			left_index   = WIDTH_MAX_INDEX
 		end
 		
 		left   = field[left_index]
