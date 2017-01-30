@@ -19,9 +19,9 @@ void print_location(int);
 void push_error(int, const char*, ...);
 void list_errors();
 
-void *bfm_malloc(size_t bytes)
+void* bfm_malloc(size_t bytes)
 {
-	void *res = malloc(bytes);
+	void* res = malloc(bytes);
 	
 	if (!res)
 		fatal_error(-1, "out of memory.");
@@ -29,7 +29,7 @@ void *bfm_malloc(size_t bytes)
 	return res;
 }
 
-void *bfm_realloc(void *block, size_t bytes)
+void* bfm_realloc(void* block, size_t bytes)
 {
 	block = realloc(block, bytes);
 	
@@ -39,10 +39,10 @@ void *bfm_realloc(void *block, size_t bytes)
 	return block;
 }
 
-char *load_file(const char *path)
+char* load_file(const char* path)
 {
-	char *buf = NULL;
-	FILE *file = fopen(path, "r");
+	char* buf = NULL;
+	FILE* file = fopen(path, "r");
 	
 	if (file) {
 		if (fseek(file, 0L, SEEK_END) == 0) {
@@ -66,6 +66,21 @@ char *load_file(const char *path)
 	}
 	
 	return buf;
+}
+
+void save_file(FILE* file, char* str)
+{
+	if (!str)
+		return;
+
+	int index = 0;
+	while (str[index] != '\0') {
+		if (index % 80 == 0 && index != 0) {
+			fputc('\n', file);
+		}
+		fputc(str[index], file);
+		index++;
+	}
 }
 
 #define MAX_ERRORS 128
@@ -392,8 +407,8 @@ char token_types[][11] = { /* for debugging */
 
 Token* tokenize(char* in)
 {
-	Token* head    = bfm_malloc(sizeof(Token));
-	Token* current = head;
+	/* TODO: CLEAN UP */
+	Token* current = NULL, *head = NULL, *prev = NULL;
 	char * start   = in, *end = in;
 
 	/* end will march ahead of start to the end of a token, then
@@ -512,6 +527,10 @@ Token* tokenize(char* in)
 			end++;
 		}
 		
+		if (!current)
+			current = bfm_malloc(sizeof(Token));
+
+		current->prev   = prev;
 		current->type   = tok_type;
 		current->origin = tok_origin;
 		current->value  = bfm_malloc(end - start + 1);
@@ -530,8 +549,8 @@ Token* tokenize(char* in)
 		if (current->type == TOK_STRING)
 			current->value = parse_escape_characters(current->value);
 		
+		prev = current;
 		current->next = bfm_malloc(sizeof(Token));
-		current->next->prev = current;
 		current = current->next;
 		
 		if (skip_char) {
@@ -540,8 +559,15 @@ Token* tokenize(char* in)
 		}
 	}
 
-	current->prev->next = NULL;
-	
+	head = prev;
+	if (head) {
+		prev->next = NULL;
+
+		while (head->prev) {
+			head = head->prev;
+		}
+	}
+
 	return head;
 }
 
@@ -591,31 +617,32 @@ void emit_char(char c)
 	|| (c >= 'A' && c <= 'Z') \
 	|| IS_DIGIT(c))
 
-#define IS_BF_COMMAND(c) (   \
-    c == '<' || c == '>'     \
-    || c == '+' || c == '-'  \
-    || c == '[' || c == ']'  \
-    || c == ',' || c == '.')
-
-#define IS_CONTRACTABLE(c) ( \
-    c == '<' || c == '>'     \
-    || c == '+' || c == '-')
-
 #define SKIP_COMMENTS(c)                      \
     do {                                      \
         while (!IS_BF_COMMAND(*c) && *c) c++; \
     } while (0);
 
+void sanitize(char* str)
+{
+	if (!str)
+		return;
+
+#define IS_BF_COMMAND(c) (   \
+        c == '<' || c == '>'     \
+        || c == '+' || c == '-'  \
+        || c == '[' || c == ']'  \
+        || c == ',' || c == '.')
+
 #define ADD(a, c) \
-    if (a >= 0) { \
-        for (int counter = 0; counter < abs(a); counter++) { \
-            *c++ = '+'; \
-        } \
-    } else { \
-    	for (int counter = 0; counter < abs(a); counter++) { \
-            *c++ = '-'; \
-        } \
-    }
+        if (a >= 0) { \
+                for (int counter = 0; counter < abs(a); counter++) { \
+                        *c++ = '+'; \
+                } \
+        } else { \
+    	        for (int counter = 0; counter < abs(a); counter++) { \
+                        *c++ = '-'; \
+                } \
+        }
 
 #define MOVE_PTR(a, c) \
     if (a >= 0) { \
@@ -628,8 +655,10 @@ void emit_char(char c)
         } \
     }
 
-void sanitize(char* str)
-{
+#define IS_CONTRACTABLE(c) (     \
+        c == '<' || c == '>'     \
+        || c == '+' || c == '-')
+
 	char* buf = malloc(strlen(str) + 1);
 
 	size_t starting_len;
@@ -688,7 +717,7 @@ int count_variables(Token* tok)
 {
 	int res = 0;
 
-	while (tok->next) {
+	while (tok) {
 		if (!strcmp(tok->value, "var"))
 			res++;
 
@@ -1335,16 +1364,8 @@ int main(int argc, char **argv)
 	sanitize(output);
 
 	FILE* output_file = stdout;
-	
-	int index = 0;
-	while (output[index] != '\0') {
-		if (index % 80 == 0 && index != 0) {
-			fputc('\n', output_file);
-		}
-		fputc(output[index], output_file);
-		index++;
-	}
 
+	save_file(output_file, output);
 	//fclose(output_file);
 
 	return 0;
