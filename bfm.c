@@ -635,7 +635,6 @@ void sanitize(char* str)
 	size_t starting_len;
 	char* i, *out;
 
-scrub:
 	starting_len = strlen(str);
 	i = str, out = buf;
 
@@ -676,8 +675,9 @@ scrub:
 	*out = '\0';
 	strcpy(str, buf);
 
-	if (strlen(str) < starting_len)
-		goto scrub;
+	if (strlen(str) < starting_len) {
+		sanitize(str);
+	}
 }
 
 #define NUM_TEMP_CELLS 10
@@ -803,8 +803,7 @@ enum {
 	KYWRD_ARRAY,
 	KYWRD_BF,
 	KYWRD_DEFINE,
-	KYWRD_INPUT,
-	KYWRD_ELSE
+	KYWRD_INPUT
 };
 
 #define NUM_KEYWORDS 12
@@ -819,8 +818,7 @@ char keywords[NUM_KEYWORDS][15] = {
 	"array",
 	"fuck",
 	"define",
-	"input",
-	"else"
+	"input"
 };
 
 int get_keyword(char* str)
@@ -1273,9 +1271,6 @@ void parse_keyword(Token** token)
 			
 			move_pointer_to(variables[var_index].location);
 			emit(",");
-		} break;
-		case KYWRD_ELSE: {
-			// TODO: this thing
 		} break;
 	}
 
