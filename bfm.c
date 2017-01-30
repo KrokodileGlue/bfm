@@ -315,8 +315,42 @@ enum { /* math operators */
         || (c == '_')              \
         || (c >= '0' && c <= '9'))
 
-/* support the escape characters \b, \t, \n, \f, \r */
-char* parse_escape_characters(char* str)
+int is_number(const char* str)
+{
+	int i = 0, result = 1, is_hex = 0;
+	
+	if (!strncmp(str, "0x", 2)) {
+		i += 2;
+		is_hex = 1;
+	}
+	
+	while (str[i]) {
+		if (is_hex) {
+			if (!isalnum(str[i]) || tolower(str[i]) > 'f')
+				result = 0;
+		} else {
+			if (!isdigit(str[i]))
+				result = 0;
+		}
+		i++;
+	}
+	
+	return result;
+}
+
+int is_hex_num(char* str)
+{
+#define HEX_CHARACTER(c) \
+        ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9'))
+
+	for (int i = 0; i < (int)strlen(str); i++) {
+		if (!HEX_CHARACTER(str[i]))
+			return 0;
+	}
+	return 1;
+}
+
+char* parse_escape_characters(char* str, int location)
 {
 	char* buf = bfm_malloc(strlen(str) + 1);
 	
@@ -342,6 +376,20 @@ char* parse_escape_characters(char* str)
 				case 'r':
 					*c = '\r';
 					break;
+				case 'x':
+					if (strlen(&str[i]) < 3)
+						push_error(location + i, "malformed control character in string.");
+
+					char* num = malloc(3);
+					strncpy(num, &str[i + 1], 2);
+					num[2] = '\0';
+
+					if (!is_hex_num(num))
+						push_error(location + i, "malformed control character in string.");
+
+					*c = (char)strtol(num, NULL, 16);
+					i += 2;
+					break;
 				default:
 					*c = str[i];
 					break;
@@ -355,33 +403,10 @@ char* parse_escape_characters(char* str)
 		
 		i++;
 	}
-	*c = 0;
+	*c = '\0';
 	
 	free(str);
 	return buf;
-}
-
-int is_number(const char* str)
-{
-	int i = 0, result = 1, is_hex = 0;
-	
-	if (!strncmp(str, "0x", 2)) {
-		i += 2;
-		is_hex = 1;
-	}
-	
-	while (str[i]) {
-		if (is_hex) {
-			if (!isalnum(str[i]) || tolower(str[i]) > 'f')
-				result = 0;
-		} else {
-			if (!isdigit(str[i]))
-				result = 0;
-		}
-		i++;
-	}
-	
-	return result;
 }
 
 int get_operator_type(const char* str)
@@ -547,7 +572,7 @@ Token* tokenize(char* in)
 			current->type = TOK_NUMBER;
 		
 		if (current->type == TOK_STRING)
-			current->value = parse_escape_characters(current->value);
+			current->value = parse_escape_characters(current->value, current->origin);
 		
 		prev = current;
 		current->next = bfm_malloc(sizeof(Token));
