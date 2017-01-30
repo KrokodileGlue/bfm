@@ -432,7 +432,6 @@ char token_types[][11] = { /* for debugging */
 
 Token* tokenize(char* in)
 {
-	/* TODO: CLEAN UP */
 	Token* current = NULL, *head = NULL, *prev = NULL;
 	char * start   = in, *end = in;
 
@@ -1046,6 +1045,7 @@ void parse_operation(Token** token)
 		case MOP_SUB:    algo = ALGO_SUB;  break;
 		case MOP_OROR:   algo = ALGO_OR;   break;
 		case MOP_DIV:    algo = ALGO_DIV;  break;
+		case MOP_MUL:    algo = ALGO_MUL;  break;
 		default:
 			push_error(tok->origin, "unrecognized operator.");
 			return;
@@ -1111,14 +1111,14 @@ void parse_operation(Token** token)
 			*token = tok;
 			FERRY_ARRAY_BACK
 			return;
-		} if (operation == MOP_SUB) {
+		} else if (operation == MOP_SUB) {
 			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
 			add(-a);
 			*token = tok;
 			FERRY_ARRAY_BACK
 			return;
-		} if (operation == MOP_EQU) {
+		} else if (operation == MOP_EQU) {
 			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
 			emit("[-]");

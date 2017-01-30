@@ -1,0 +1,195 @@
+print "         One Dimensional Cellular Automata in brainfuck\n"
+print "                  by retrosegfault.tumblr.com\n\n"
+
+define WIDTH 66
+define WIDTH_MAX_INDEX 65
+define NUM_GENERATIONS 50
+
+array field 136
+
+field[98] = 1 // initial condition
+
+var generation     generation = NUM_GENERATIONS
+var i
+var result
+var flag
+
+var left           var center           var right
+var left_index     var center_index     var right_index
+var not_left       var not_center       var not_right
+
+while generation
+	generation - 1
+	
+	i = WIDTH
+	while i
+		i - 1
+		
+		var index    index = i
+		index + WIDTH
+		field[i] = field[index]
+	end
+
+	flag = 1
+	i = 0
+	while flag
+		var temp
+		temp = field[i]
+		
+		if temp
+			print "#"
+		end
+		not temp
+		if temp
+			print " "
+		end
+		
+		i + 1
+		flag = i    flag == WIDTH
+		not flag
+	end
+	print "\n"
+	
+	i = WIDTH
+	while i // this loop will go through the field and do the logic
+		i - 1
+
+		var is_i_width      is_i_width = i
+		var is_i_zero       is_i_zero  = i
+		is_i_zero  == 0
+		is_i_width == WIDTH_MAX_INDEX
+
+		left_index   = i
+		left_index   - 1
+		center_index = i
+		right_index  = i
+		right_index  + 1
+		
+		if is_i_width
+			right_index = 0
+		end
+		if is_i_zero
+			left_index  = WIDTH_MAX_INDEX
+		end
+		
+		left   = field[left_index]
+		center = field[center_index]
+		right  = field[right_index]
+		
+		// left center and right now hold the (wrapped) cell values
+		
+		not_left   = left      not not_left
+		not_center = center    not not_center
+		not_right  = right     not not_right
+		
+		result = 0
+		
+		// rule 90
+		/* if left
+			if center
+				if not_right
+					result = 1
+				end
+			end
+			if not_center
+				if not_right
+					result = 1
+				end
+			end
+		end
+		
+		if not_left
+			if center
+				if right
+					result = 1
+				end
+			end
+			if not_center
+				if right
+					result = 1
+				end
+			end
+		end */
+		
+		// rule 30
+		/* if left
+			if not_center
+				if not_right
+					result = 1
+				end
+			end
+		end
+		
+		if center
+			if not_left
+				result = 1
+			end
+		end
+		
+		if right
+			if not_center
+				if not_left
+					result = 1
+				end
+			end
+		end */
+		
+		// rule 150
+		if left
+			if center
+				if right
+					result = 1
+				end
+			end
+			if not_center
+				if not_right
+					result = 1
+				end
+			end
+		end
+		
+		if center
+			if not_left
+				if not_right
+					result = 1
+				end
+			end
+		end
+		
+		if right
+			if not_center
+				if not_left
+					result = 1
+				end
+			end
+		end
+
+		// rule 73
+		/* if not_left
+			if not_center
+				if not_right
+					result = 1
+				end
+			end
+
+			if center
+				if right
+					result = 1 
+				end
+			end
+		end
+
+		if left
+			if center
+				if not_right
+					result = 1
+				end
+			end
+		end */
+
+		var index    index = i
+		index + WIDTH
+		
+		field[index] = result
+	end
+end
