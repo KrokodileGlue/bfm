@@ -9,11 +9,9 @@ array field 136
 
 field[98] = 1 // initial condition
 
-var generation
-var i
-var result
+var generation     var i
+var result         var flag
 var null /* used to throw away values we don't want to keep */
-var flag
 
 var left           var center           var right
 var left_index     var center_index     var right_index
@@ -22,17 +20,15 @@ var not_left       var not_center       var not_right
 var algo
 print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\n"
 print "select an algorithm (0 - 3): "
-input algo
-algo - 48
+input algo        algo - 48
 input null /* eat the the return character */
 
 print "enter a number of generations: "
-var digit_ptr
-flag = 1
+var digit_ptr        flag = 1
 while flag
 	var c        input c
 	digits[digit_ptr] = c
-	digit_ptr + 1
+	digit_ptr         + 1
 
 	flag = c     flag == 10 /* do this loop until we
 	                         * hit a return */
@@ -49,9 +45,9 @@ while digit_ptr
 	c - 48
 
 	if digit
-		var temp     temp = 1
+		var temp    temp = 1
 
-		var i        i    = digit
+		var i       i    = digit
 		while i
 			i - 1
 			temp * 10
@@ -59,7 +55,7 @@ while digit_ptr
 		c * temp
 	end
 	generation + c
-	digit + 1
+	digit      + 1
 end
 
 while generation
