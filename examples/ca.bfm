@@ -1,21 +1,66 @@
-print "            One Dimensional Cellular Automata in brainfuck\n"
-print "                     by retrosegfault.tumblr.com\n\n"
+print "         One Dimensional Cellular Automata in brainfuck\n"
+print "                  by retrosegfault.tumblr.com\n"
 
-define WIDTH 68
-define WIDTH_MAX_INDEX 67
-define NUM_GENERATIONS 50
+define WIDTH 66
+define WIDTH_MAX_INDEX 65
 
+array digits 10
 array field 136
 
-field[102] = 1 // initial condition
+field[98] = 1 // initial condition
 
-var generation     generation = NUM_GENERATIONS
+var generation
 var i
 var result
+var null /* used to throw away values we don't want to keep */
+var flag
 
 var left           var center           var right
 var left_index     var center_index     var right_index
 var not_left       var not_center       var not_right
+
+var algo
+print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\n"
+print "select an algorithm (0 - 3): "
+input algo
+algo - 48
+input null /* eat the the return character */
+
+print "enter a number of generations: "
+var digit_ptr
+flag = 1
+while flag
+	var c        input c
+	digits[digit_ptr] = c
+	digit_ptr + 1
+
+	flag = c     flag == 10 /* do this loop until we
+	                         * hit a return */
+	not flag
+end
+digit_ptr - 1 /* discard the return */
+
+var digit
+while digit_ptr
+	digit_ptr - 1
+
+	var c
+	c = digits[digit_ptr]
+	c - 48
+
+	if digit
+		var temp     temp = 1
+
+		var i        i    = digit
+		while i
+			i - 1
+			temp * 10
+		end
+		c * temp
+	end
+	generation + c
+	digit + 1
+end
 
 while generation
 	generation - 1
@@ -29,9 +74,9 @@ while generation
 		field[i] = field[index]
 	end
 
-	var i_not_done    i_not_done = 1
+	flag = 1
 	i = 0
-	while i_not_done
+	while flag
 		var temp
 		temp = field[i]
 		
@@ -44,15 +89,15 @@ while generation
 		end
 		
 		i + 1
-		i_not_done = i    i_not_done == WIDTH_MAX_INDEX
-		not i_not_done
+		flag = i    flag == WIDTH
+		not flag
 	end
 	print "\n"
 	
 	i = WIDTH
-	while i // this loop will go through the field and do the logic
+	while i // go through the field and do the logic
 		i - 1
-		
+
 		var is_i_width      is_i_width = i
 		var is_i_zero       is_i_zero  = i
 		is_i_zero  == 0
@@ -65,10 +110,10 @@ while generation
 		right_index  + 1
 		
 		if is_i_width
-			right_index  = 0
+			right_index = 0
 		end
 		if is_i_zero
-			left_index   = WIDTH_MAX_INDEX
+			left_index  = WIDTH_MAX_INDEX
 		end
 		
 		left   = field[left_index]
@@ -84,81 +129,117 @@ while generation
 		result = 0
 		
 		// rule 90
-		/* if left
-			if center
-				if not_right
-					result = 1
+		var temp
+		temp = algo     temp == 0
+		if temp
+			if left
+				if center
+					if not_right
+						result = 1
+					end
+				end
+				if not_center
+					if not_right
+						result = 1
+					end
 				end
 			end
-			if not_center
-				if not_right
-					result = 1
+			
+			if not_left
+				if center
+					if right
+						result = 1
+					end
+				end
+				if not_center
+					if right
+						result = 1
+					end
 				end
 			end
 		end
-		
-		if not_left
-			if center
-				if right
-					result = 1
-				end
-			end
-			if not_center
-				if right
-					result = 1
-				end
-			end
-		end */
 		
 		// rule 30
-		/* if left
-			if not_center
-				if not_right
-					result = 1
+		temp = algo     temp == 1
+		if temp
+			if left
+				if not_center
+					if not_right
+						result = 1
+					end
 				end
 			end
-		end
-		
-		if center
-			if not_left
-				result = 1
-			end
-		end
-		
-		if right
-			if not_center
+			
+			if center
 				if not_left
 					result = 1
 				end
 			end
-		end */
+			
+			if right
+				if not_center
+					if not_left
+						result = 1
+					end
+				end
+			end
+		end
 		
 		// rule 150
-		if left
+		temp = algo     temp == 2
+		if temp
+			if left
+				if center
+					if right
+						result = 1
+					end
+				end
+				if not_center
+					if not_right
+						result = 1
+					end
+				end
+			end
+			
 			if center
-				if right
-					result = 1
-				end
-			end
-			if not_center
-				if not_right
-					result = 1
-				end
-			end
-		end
-		
-		if center
-			if not_left
-				if not_right
-					result = 1
-				end
-			end
-		end
-		
-		if right
-			if not_center
 				if not_left
-					result = 1
+					if not_right
+						result = 1
+					end
+				end
+			end
+			
+			if right
+				if not_center
+					if not_left
+						result = 1
+					end
+				end
+			end
+		end
+
+		// rule 73
+		temp = algo     temp == 3
+		if temp
+			if not_left
+				if not_center
+					if not_right
+						result = 1
+					end
+				end
+
+				if center
+					if right
+						result = 1 
+					end
+				end
+			end
+
+			if left
+				if center
+					if not_right
+						result = 1
+					end
 				end
 			end
 		end
