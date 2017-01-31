@@ -20,7 +20,7 @@ var not_left       var not_center       var not_right
 var algo
 print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\n"
 print "select an algorithm (0 - 3): "
-input algo        algo - 48
+input algo        algo - '0'
 input null /* eat the the return character */
 
 print "enter a number of generations: "
@@ -42,12 +42,12 @@ while digit_ptr
 
 	var c
 	c = digits[digit_ptr]
-	c - 48
+	c - '0'
 
 	if digit
 		var temp    temp = 1
 
-		var i       i    = digit
+		i = digit
 		while i
 			i - 1
 			temp * 10

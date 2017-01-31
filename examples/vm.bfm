@@ -1,6 +1,8 @@
-/* this example does not work yet, because of the rewrite,
- * but was working before, and will be used as the virtual
- * machine that will execute the bytecode of HoLeeFuk. */
+/* Behold, the unfinished virtual machine that
+ * will execute the bytecode of HoLeeFuk
+ *
+ * is not currently up-to-date with the development
+ * of bfm */
 
 array mem 8
 
