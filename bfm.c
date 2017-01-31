@@ -270,7 +270,7 @@ typedef struct struct_token {
 	enum {
 		TOK_IDENTIFIER, TOK_NUMBER,
 		TOK_STRING, TOK_OPERATOR,
-		TOK_SYMBOL
+		TOK_SYMBOL, TOK_CHAR
 	} type;
 	
 	int origin; /* the index of the token's original location in the source file */
@@ -546,6 +546,37 @@ Token* tokenize(char* in)
 				end = start;
 				tok_origin = start - in;
 			}
+		} else if (*start == '\'') {
+			skip_char = 1;
+			
+			end++;
+			start++;
+			
+			tok_type = TOK_CHAR;
+			while (*end != '\'' && *end) {
+				if (*end == '\n') {
+					push_error(tok_origin, "unmatched ' character.");
+					
+					start += 1;
+					end = start;
+					tok_origin = start - in;
+					
+					break;
+				}
+				else {
+					if (*end == '\\' && *(end + 1) != 0)
+						end++;
+					end++;
+				}
+			}
+			
+			if (!*end) {
+				push_error(tok_origin, "unmatched ' character.");
+				
+				start += 1;
+				end = start;
+				tok_origin = start - in;
+			}
 		} else {
 			tok_type = TOK_SYMBOL;
 			end++;
@@ -567,11 +598,25 @@ Token* tokenize(char* in)
 		}
 		current->value[i] = 0;
 		
-		if (is_number(current->value))
+		if (is_number(current->value) && current->type == TOK_IDENTIFIER) {
 			current->type = TOK_NUMBER;
+		}
 		
-		if (current->type == TOK_STRING)
+		if (current->type == TOK_STRING || current->type == TOK_CHAR) {
 			current->value = parse_escape_characters(current->value, current->origin);
+		}
+
+		if (current->type == TOK_CHAR) {
+			if (strlen(current->value) > 1) {
+				push_error(tok_origin, "multi-character chars are not permitted.");
+			}
+
+			current->type = TOK_NUMBER;
+			char num[128] = { 0 };
+			snprintf(num, 128, "%d", current->value[0]);
+			current->value = bfm_realloc(current->value, strlen(num) + 1);
+			strcpy(current->value, num);
+		}
 		
 		prev = current;
 		current->next = bfm_malloc(sizeof(Token));
@@ -1392,10 +1437,9 @@ int main(int argc, char **argv)
 	arrays = temp_cells + NUM_TEMP_CELLS;
 
 	parse(tok);
-	sanitize(output);
+	//sanitize(output);
 
 	FILE* output_file = stdout;
-
 	save_file(output_file, output);
 	//fclose(output_file);
 

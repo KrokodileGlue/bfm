@@ -1,7 +1,7 @@
 var i       i    = 1
 var flag    flag = 1
 
-# LIMIT 101
+define LIMIT 101
 
 while flag
 	var printNum    printNum = 1
