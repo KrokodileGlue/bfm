@@ -845,6 +845,15 @@ void emit_print_string(const char* str)
 	}
 }
 
+#define SYNTAX_ASSERT(err_cond, err_str)                  \
+	do {                                              \
+		if (err_cond) {                           \
+			push_error(tok->origin, err_str); \
+			*token = tok;                     \
+			return;                           \
+		}                                         \
+	} while(0);
+
 enum {
 	KYWRD_VAR,
 	KYWRD_WHILE,
@@ -892,8 +901,22 @@ typedef struct {
 Variable variables[4096];
 int num_variables = 0, scope = 0, used_array_cells = 0, used_variable_cells = 0;
 
-void add_variable(char* varname, int num_elements, int type)
+int get_variable_index(char* varname)
 {
+	for (int i = 0; i < num_variables; i++) {
+		if (!strcmp(variables[i].name, varname))
+			return i;
+	}
+	return -1;
+}
+
+void add_variable(char* varname, int num_elements, int type, int location)
+{
+	if (get_variable_index(varname) != -1) {
+		push_error(location, "variable already defined.");
+		return;
+	}
+
 	if (type == VAR_CELL) {
 		variables[num_variables].location = used_variable_cells;
 		used_variable_cells++;
@@ -915,15 +938,6 @@ void kill_variables_of_scope(int killscope)
 			num_variables--;
 		}
 	}
-}
-
-int get_variable_index(char* varname)
-{
-	for (int i = 0; i < num_variables; i++) {
-		if (!strcmp(variables[i].name, varname))
-			return i;
-	}
-	return -1;
 }
 
 typedef struct {
@@ -964,15 +978,6 @@ int get_definition_index(char* name)
 			push_error(t->origin, "expected token \"%s\".\n", str); \
 		}                                                               \
 	} while (0);
-
-#define SYNTAX_ASSERT(err_cond, err_str)                  \
-	do {                                              \
-		if (err_cond) {                           \
-			push_error(tok->origin, err_str); \
-			*token = tok;                     \
-			return;                           \
-		}                                         \
-	} while(0);
 
 void parse_lefthand_side(Token** token, int* left, int* left_index, int* array)
 {
@@ -1157,9 +1162,10 @@ void parse_keyword(Token** token)
 		case KYWRD_VAR:
 			NEXT_TOKEN(tok)
 
+			SYNTAX_ASSERT(tok->type != TOK_IDENTIFIER, "expected an identifier.")
 			SYNTAX_ASSERT(get_keyword(tok->value) != -1, "variable names must not be keywords.")
 
-			add_variable(tok->value, -1, VAR_CELL);
+			add_variable(tok->value, -1, VAR_CELL, tok->origin);
 			break;
 		case KYWRD_WHILE: {
 			NEXT_TOKEN(tok)
@@ -1299,7 +1305,7 @@ void parse_keyword(Token** token)
 			SYNTAX_ASSERT(parse_tok->type != TOK_NUMBER, "expected a number or constant identifier.")
 
 			long array_len = strtol(parse_tok->value, NULL, 0);
-			add_variable(name, (int)array_len, VAR_ARRAY);
+			add_variable(name, (int)array_len, VAR_ARRAY, tok->origin);
 		} break;
 		case KYWRD_BF: {
 			NEXT_TOKEN(tok)
