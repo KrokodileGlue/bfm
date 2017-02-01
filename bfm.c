@@ -892,6 +892,19 @@ void emit_print_string(const char* str)
 	}
 }
 
+void emit_write_string(const char* str)
+{
+	int i = 0;
+	while (str[i] != '\0') {
+		emit("[-]"), add(str[i]), emit(">");
+		i++;
+	}
+
+	for (i = 0; i < (int)strlen(str); i++) {
+		emit("<");
+	}
+}
+
 #define SYNTAX_ASSERT(err_cond, err_str)                  \
 	do {                                              \
 		if (err_cond) {                           \
@@ -912,7 +925,8 @@ enum {
 	KYWRD_ARRAY,
 	KYWRD_BF,
 	KYWRD_DEFINE,
-	KYWRD_INPUT
+	KYWRD_INPUT,
+	KYWRD_WRITE
 };
 
 #define NUM_KEYWORDS 12
@@ -927,7 +941,8 @@ char keywords[NUM_KEYWORDS][15] = {
 	"array",
 	"fuck",
 	"define",
-	"input"
+	"input",
+	"write"
 };
 
 int get_keyword(char* str)
@@ -1333,8 +1348,7 @@ void parse_keyword(Token** token)
 				}
 				default:
 					push_error(-1, "unexpected token \"%s\", expected a string, number, or identifier.", tok->value);
-			}
-			break;
+			} break;
 		case KYWRD_ARRAY: {
 			NEXT_TOKEN(tok)
 
@@ -1377,6 +1391,12 @@ void parse_keyword(Token** token)
 			
 			move_pointer_to(variables[var_index].location);
 			emit(",");
+		} break;
+		case KYWRD_WRITE: {
+			NEXT_TOKEN(tok)
+			SYNTAX_ASSERT(tok->type != TOK_STRING, "expected a string.")
+
+			emit_write_string(tok->value);
 		} break;
 	}
 
