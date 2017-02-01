@@ -418,14 +418,14 @@ char* parse_escape_characters(char* str, int location)
 					break;
 				case 'x':
 					if (strlen(&str[i]) < 3)
-						push_error(location + i, "malformed control character in string.");
+						push_error(location + i, "malformed escape sequence.");
 
 					char num[3];
 					strncpy(num, &str[i + 1], 2);
 					num[2] = '\0';
 
 					if (!is_hex_num(num))
-						push_error(location + i, "malformed control character in string.");
+						push_error(location + i, "malformed escape sequence.");
 
 					*c = (char)strtol(num, NULL, 16);
 					i += 2;
