@@ -627,6 +627,7 @@ Token* tokenize(char* in)
 			start++;
 		}
 	}
+	free(current);
 
 	head = prev;
 	if (head) {
@@ -640,7 +641,7 @@ Token* tokenize(char* in)
 	return head;
 }
 
-#define OUT_GROWTH_RATE 4096 /* how many bytes we should use as padding when we run out of room */
+#define OUT_GROWTH_SPEED 4096
 char *output;
 int out_index = 0, out_allocated = 0;
 
@@ -662,8 +663,8 @@ void emit(const char* out)
 	
 	int bytes_needed = strlen(out) + out_index - out_allocated;
 	if (bytes_needed >= 0) {
-		output = bfm_realloc(output, out_allocated + bytes_needed + OUT_GROWTH_RATE);
-		out_allocated = out_allocated + bytes_needed + OUT_GROWTH_RATE;
+		output = bfm_realloc(output, out_allocated + bytes_needed + OUT_GROWTH_SPEED);
+		out_allocated = out_allocated + bytes_needed + OUT_GROWTH_SPEED;
 	}
 	
 	strcpy(&output[out_index], out);
@@ -772,6 +773,7 @@ void sanitize(char* str)
 	}
 	*out = '\0';
 	strcpy(str, buf);
+	free(buf);
 
 	if (strlen(str) < starting_len) {
 		sanitize(str);
@@ -994,8 +996,7 @@ int num_definitions = 0;
 
 void add_definition(char* name, Token tok)
 {
-	definitions[num_definitions].name = malloc(strlen(name) + 1);
-	strcpy(definitions[num_definitions].name, name);
+	definitions[num_definitions].name = name;
 	definitions[num_definitions++].tok = tok;
 }
 
@@ -1400,6 +1401,25 @@ void parse(Token* tok)
 	check_errors();
 }
 
+void delete_list(Token* tok)
+{
+	Token* current = tok;
+	Token* next = NULL, *prev = NULL;
+	while (current) {
+		prev = current;
+		next = current->next;
+
+		free(current->value);
+		if (current->prev)
+			free(current->prev);
+
+		current = next;
+	}
+
+	if (prev)
+		free(prev);
+}
+
 int main(int argc, char **argv)
 {
 	for (int i = 1; i < argc; i++) {
@@ -1412,13 +1432,12 @@ int main(int argc, char **argv)
 	if (!input_path)
 		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
 
-	char *src = load_file(input_path);
-	raw = src;
+	raw = load_file(input_path);
 
-	if (!src)
+	if (!raw)
 		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
 
-	Token *tok = tokenize(src);
+	Token *tok = tokenize(raw);
 	check_errors();
 
 #if 0
@@ -1437,11 +1456,15 @@ int main(int argc, char **argv)
 	arrays = temp_cells + NUM_TEMP_CELLS;
 
 	parse(tok);
-	//sanitize(output);
+	free(raw);
+	delete_list(tok);
+
+	sanitize(output);
 
 	FILE* output_file = stdout;
 	save_file(output_file, output);
 	//fclose(output_file);
+	free(output);
 
 	return 0;
 }
