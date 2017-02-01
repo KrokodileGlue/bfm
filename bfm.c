@@ -266,14 +266,54 @@ void list_errors()
 	}
 }
 
+#define NUM_KEYWORDS 12
+char keywords[NUM_KEYWORDS][15] = {
+	"var",
+	"while",
+	"end",
+	"point",
+	"if",
+	"not",
+	"print",
+	"array",
+	"fuck",
+	"define",
+	"input",
+	"write"
+};
+
+enum {
+	KYWRD_VAR,
+	KYWRD_WHILE,
+	KYWRD_END,
+	KYWRD_GOTO,
+	KYWRD_IF,
+	KYWRD_NOT,
+	KYWRD_PRINT,
+	KYWRD_ARRAY,
+	KYWRD_BF,
+	KYWRD_DEFINE,
+	KYWRD_INPUT,
+	KYWRD_WRITE
+};
+
+int get_keyword(char* str)
+{
+	for (int i = 0; i < NUM_KEYWORDS; i++)
+		if (!strcmp(str, keywords[i]))
+			return i;
+	return -1;
+}
+
 typedef struct struct_token {
 	enum {
 		TOK_IDENTIFIER, TOK_NUMBER,
 		TOK_STRING, TOK_OPERATOR,
-		TOK_SYMBOL, TOK_CHAR
+		TOK_SYMBOL, TOK_CHAR,
+		TOK_KYWRD
 	} type;
 	
-	int origin; /* the index of the token's original location in the source file */
+	int origin, data; /* the index of the token's original location in the source file */
 	char* value; /* the body of the token */
 	
 	struct struct_token* next; /* all tokens are part of a linked list */
@@ -380,7 +420,7 @@ char* parse_escape_characters(char* str, int location)
 					if (strlen(&str[i]) < 3)
 						push_error(location + i, "malformed control character in string.");
 
-					char* num = malloc(3);
+					char num[3];
 					strncpy(num, &str[i + 1], 2);
 					num[2] = '\0';
 
@@ -598,12 +638,22 @@ Token* tokenize(char* in)
 		}
 		current->value[i] = 0;
 		
-		if (is_number(current->value) && current->type == TOK_IDENTIFIER) {
-			current->type = TOK_NUMBER;
+		if (current->type == TOK_IDENTIFIER) {
+			if (is_number(current->value))
+				current->type = TOK_NUMBER;
+
+			if (get_keyword(current->value) != -1) {
+				current->type = TOK_KYWRD;
+				current->data = get_keyword(current->value);
+			}
 		}
 		
 		if (current->type == TOK_STRING || current->type == TOK_CHAR) {
 			current->value = parse_escape_characters(current->value, current->origin);
+		}
+
+		if (current->type == TOK_NUMBER) {
+			current->data = strtol(current->value, NULL, 0);
 		}
 
 		if (current->type == TOK_CHAR) {
@@ -612,10 +662,7 @@ Token* tokenize(char* in)
 			}
 
 			current->type = TOK_NUMBER;
-			char num[128] = { 0 };
-			snprintf(num, 128, "%d", current->value[0]);
-			current->value = bfm_realloc(current->value, strlen(num) + 1);
-			strcpy(current->value, num);
+			current->data = (int)(current->value[0]);
 		}
 		
 		prev = current;
@@ -627,7 +674,9 @@ Token* tokenize(char* in)
 			start++;
 		}
 	}
-	free(current);
+	
+	if (current)
+		free(current); 
 
 	head = prev;
 	if (head) {
@@ -914,45 +963,6 @@ void emit_write_string(const char* str)
 		}                                         \
 	} while(0);
 
-enum {
-	KYWRD_VAR,
-	KYWRD_WHILE,
-	KYWRD_END,
-	KYWRD_GOTO,
-	KYWRD_IF,
-	KYWRD_NOT,
-	KYWRD_PRINT,
-	KYWRD_ARRAY,
-	KYWRD_BF,
-	KYWRD_DEFINE,
-	KYWRD_INPUT,
-	KYWRD_WRITE
-};
-
-#define NUM_KEYWORDS 12
-char keywords[NUM_KEYWORDS][15] = {
-	"var",
-	"while",
-	"end",
-	"point",
-	"if",
-	"not",
-	"print",
-	"array",
-	"fuck",
-	"define",
-	"input",
-	"write"
-};
-
-int get_keyword(char* str)
-{
-	for (int i = 0; i < NUM_KEYWORDS; i++)
-		if (!strcmp(str, keywords[i]))
-			return i;
-	return -1;
-}
-
 typedef struct {
 	char* name;
 	int location, scope, num_elements;
@@ -1060,11 +1070,9 @@ void parse_lefthand_side(Token** token, int* left, int* left_index, int* array)
 
 		/* now get the index value, we must account for variables and constants */
 		if (parse_tok->type == TOK_NUMBER) {
-			long a = strtol(parse_tok->value, NULL, 0);
-
 			move_pointer_to(temp_x_index);
 			emit("[-]");
-			add((int)a);
+			add(parse_tok->data);
 		} else if (parse_tok->type == TOK_IDENTIFIER) {
 			int subscript_index = get_variable_index(parse_tok->value);
 
@@ -1146,11 +1154,9 @@ void parse_operation(Token** token)
 
 			/* now get the index value, we must account for variables and constants */
 			if (parse_tok->type == TOK_NUMBER) {
-				long a = strtol(parse_tok->value, NULL, 0);
-
 				move_pointer_to(temp_y_index);
 				emit("[-]");
-				add((int)a);
+				add(parse_tok->data);
 			} else if (parse_tok->type == TOK_IDENTIFIER) {
 				int subscript_index = get_variable_index(parse_tok->value);
 				SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
@@ -1171,32 +1177,28 @@ void parse_operation(Token** token)
 		SYNTAX_ASSERT(parse_tok->type != TOK_NUMBER, "invalid identifier.")
 
 		if (operation == MOP_ADD) {
-			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
-			add((int)a);
+			add(parse_tok->data);
 			*token = tok;
 			FERRY_ARRAY_BACK
 			return;
 		} else if (operation == MOP_SUB) {
-			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
-			add(-a);
+			add(-parse_tok->data);
 			*token = tok;
 			FERRY_ARRAY_BACK
 			return;
 		} else if (operation == MOP_EQU) {
-			long a = strtol(parse_tok->value, NULL, 0);
 			move_pointer_to(left);
 			emit("[-]");
-			add((int)a);
+			add(parse_tok->data);
 			*token = tok;
 			FERRY_ARRAY_BACK
 			return;
 		} else {
 			move_pointer_to(temp_y);
 			emit("[-]");
-			long a = strtol(parse_tok->value, NULL, 0);
-			add((int)a);
+			add(parse_tok->data);
 			right = temp_y;
 		}
 	}
@@ -1219,7 +1221,7 @@ void parse_keyword(Token** token)
 {
 	Token* tok = *token;
 
-	switch (get_keyword(tok->value)) {
+	switch (tok->data) {
 		case KYWRD_VAR:
 			NEXT_TOKEN(tok)
 
@@ -1306,7 +1308,7 @@ void parse_keyword(Token** token)
 					break;
 				case TOK_NUMBER: {
 					char c[2] = { 0, 0 };
-					c[0] = (char)strtol(tok->value, NULL, 0);
+					c[0] = (char)tok->data;
 					
 					emit_print_string(c);
 					break;
@@ -1322,10 +1324,9 @@ void parse_keyword(Token** token)
 						NEXT_TOKEN(tok)
 
 						if (tok->type == TOK_NUMBER) {
-							long a = strtol(tok->value, NULL, 0);
 							move_pointer_to(temp_x_index);
 							emit("[-]");
-							add((int)a);
+							add(tok->data);
 						} else if (tok->type == TOK_IDENTIFIER) {
 							int subscript_index = get_variable_index(tok->value);
 
@@ -1363,9 +1364,7 @@ void parse_keyword(Token** token)
 			}
 
 			SYNTAX_ASSERT(parse_tok->type != TOK_NUMBER, "expected a number or constant identifier.")
-
-			long array_len = strtol(parse_tok->value, NULL, 0);
-			add_variable(name, (int)array_len, VAR_ARRAY, tok->origin);
+			add_variable(name, parse_tok->data, VAR_ARRAY, tok->origin);
 		} break;
 		case KYWRD_BF: {
 			NEXT_TOKEN(tok)
@@ -1406,7 +1405,7 @@ void parse_keyword(Token** token)
 void parse(Token* tok)
 {
 	while (tok) {
-		if (tok->type == TOK_IDENTIFIER && get_keyword(tok->value) != -1) {
+		if (tok->type == TOK_KYWRD) {
 			parse_keyword(&tok);
 			tok = tok->next;
 		} else if (tok->type == TOK_IDENTIFIER && get_variable_index(tok->value) != -1) {
