@@ -1,0 +1,51 @@
+var flag     flag = 1
+var cell     var temp
+
+while flag
+	print ">> "
+	var eol     eol = 1
+	var c
+	while eol
+		input c
+		var p       p = 0
+
+		temp = c    temp == 'i'
+		if temp
+			cell + 1
+		end
+
+		temp = c    temp == 'd'
+		if temp
+			cell - 1
+		end
+		
+		temp = c    temp == 's'
+		/* because of technical reasons that
+		 * are techincal because of reasons of
+		 * being annoying to implement, it's
+		 * generally a bad idea to use the same
+		 * variable on two sides of an operation. */
+		var m     m = cell
+		if temp
+			cell * m
+		end
+
+		temp = c    temp == 'o'
+		if temp
+			p = 1
+			print cell
+		end
+
+		temp = c    temp == 'h'
+		if temp
+			flag = 0
+		end
+
+		if p
+			print "\n"
+		end
+
+		eol = c     eol == 10
+		not eol
+	end
+end

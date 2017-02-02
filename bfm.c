@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <assert.h>
 
 #define DEBUG 1
 
@@ -1141,7 +1142,7 @@ void parse_operation(Token** token)
 
 	int right_index = get_variable_index(tok->value);
 
-	if (right_index != -1) {
+	if (tok->type == TOK_IDENTIFIER && right_index != -1) {
 		if (variables[right_index].type == VAR_ARRAY) {
 			EXPECT_TOKEN(tok, "[")
 			NEXT_TOKEN(tok)
