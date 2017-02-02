@@ -1172,7 +1172,12 @@ void parse_operation(Token** token)
 			emit_algo(ALGO_ARRAY_READ, temp_y, variables[right_index].location, temp_y_index); /* x = y(z) */
 			right = temp_y;
 		} else {
-			right = variables[right_index].location;
+			if (left_index == right_index) {
+				emit_algo(ALGO_EQU, temp_y, variables[right_index].location, -1);
+				right = temp_y;
+			} else {
+				right = variables[right_index].location;
+			}
 		}
 	} else {
 		SYNTAX_ASSERT(parse_tok->type != TOK_NUMBER, "invalid identifier.")

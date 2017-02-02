@@ -20,14 +20,8 @@ while flag
 		end
 		
 		temp = c    temp == 's'
-		/* because of technical reasons that
-		 * are techincal because of reasons of
-		 * being annoying to implement, it's
-		 * generally a bad idea to use the same
-		 * variable on two sides of an operation. */
-		var m     m = cell
 		if temp
-			cell * m
+			cell * cell
 		end
 
 		temp = c    temp == 'o'
@@ -45,7 +39,7 @@ while flag
 			print "\n"
 		end
 
-		eol = c     eol == 10
+		eol = c     eol == '\n'
 		not eol
 	end
 end
