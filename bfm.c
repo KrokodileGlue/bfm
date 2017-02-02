@@ -944,13 +944,17 @@ void emit_print_string(const char* str)
 
 void emit_write_string(const char* str)
 {
-	int i = 0;
-	while (str[i] != '\0') {
-		emit("[-]"), add(str[i]), emit(">");
-		i++;
+	emit("[-]"), add(str[0]);
+
+	if (strlen(str)) {
+		int i = 1;
+		while (str[i] != '\0') {
+			emit(">[-]>[-]<<[>+>+<<-]>>[<<+>>-]<"), add(str[i] - str[i - 1]);
+			i++;
+		}
 	}
 
-	for (i = 0; i < (int)strlen(str); i++) {
+	for (int i = 0; i < (int)strlen(str) - 1; i++) {
 		emit("<");
 	}
 }
@@ -1242,6 +1246,7 @@ void parse_keyword(Token** token)
 			int var_index = get_variable_index(tok->value);
 			
 			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
+			SYNTAX_ASSERT(variables[var_index].type != VAR_CELL, "arguments for while statements must not be arrays.")
 
 			int variable_location = variables[var_index].location;
 			move_pointer_to(variable_location);
@@ -1284,6 +1289,7 @@ void parse_keyword(Token** token)
 
 			int var_index = get_variable_index(tok->value);
 			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
+			SYNTAX_ASSERT(variables[var_index].type != VAR_CELL, "arguments for if statements must not be arrays.")
 
 			int variable_location = variables[var_index].location;
 			
@@ -1301,6 +1307,7 @@ void parse_keyword(Token** token)
 
 			int var_index = get_variable_index(tok->value);
 			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
+			SYNTAX_ASSERT(variables[var_index].type != VAR_CELL, "arguments for not statements must not be arrays.")
 
 			int variable_location = variables[var_index].location;
 			emit_algo(ALGO_NOT, variable_location, -1, -1);
@@ -1381,6 +1388,7 @@ void parse_keyword(Token** token)
 		} break;
 		case KYWRD_DEFINE: {
 			NEXT_TOKEN(tok)
+			SYNTAX_ASSERT(tok->type != TOK_IDENTIFIER, "expected an identifier.")
 
 			char* name = tok->value;
 			NEXT_TOKEN(tok)
@@ -1393,6 +1401,7 @@ void parse_keyword(Token** token)
 			int var_index = get_variable_index(tok->value);
 
 			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
+			SYNTAX_ASSERT(variables[var_index].type != VAR_CELL, "arguments for input statements must not be arrays.")
 			
 			move_pointer_to(variables[var_index].location);
 			emit(",");
