@@ -1469,13 +1469,18 @@ void delete_list(Token* tok)
 int main(int argc, char **argv)
 {
 	for (int i = 1; i < argc; i++) {
-		if (!strncmp(argv[i], "-o", 2))
+		if (!strncmp(argv[i], "-o", 2)) {
+			if (output_path) {
+				fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
+			}
+
 			output_path = &argv[i][2];
-		else
+		} else {
 			input_path = argv[i];
+		}
 	}
 
-	if (!input_path)
+	if (!input_path || !output_path)
 		fatal_error(-1, "Usage: bfm INPUT_PATH -oOUTPUT_PATH");
 
 	raw = load_file(input_path);
@@ -1507,9 +1512,10 @@ int main(int argc, char **argv)
 
 	sanitize(output);
 
-	FILE* output_file = stdout;
+	FILE* output_file = fopen(output_path, "w");
 	save_file(output_file, output);
-	//fclose(output_file);
+	fclose(output_file);
+
 	free(output);
 
 	return 0;
