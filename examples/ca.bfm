@@ -24,6 +24,16 @@ input algo        algo - '0'
 input null /* eat the the return character */
 
 print "enter a number of generations: "
+// decimal generations
+
+/* the following code takes in a decimal number as an input
+ * and turns it into a cell value. it is made obsolete by
+ * the introduction of the "decimal" keyword, which does the
+ * same thing, but which generates much more compact bf.
+ * 
+ * this code is kept here as an example of a practical
+ * programming task in bfm. */
+
 var digit_ptr        flag = 1
 while flag
 	var c        input c
