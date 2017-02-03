@@ -267,7 +267,7 @@ void list_errors()
 	}
 }
 
-#define NUM_KEYWORDS 12
+#define NUM_KEYWORDS 13
 char keywords[NUM_KEYWORDS][15] = {
 	"var",
 	"while",
@@ -280,7 +280,8 @@ char keywords[NUM_KEYWORDS][15] = {
 	"fuck",
 	"define",
 	"input",
-	"write"
+	"write",
+	"decimal"
 };
 
 enum {
@@ -295,7 +296,8 @@ enum {
 	KYWRD_BF,
 	KYWRD_DEFINE,
 	KYWRD_INPUT,
-	KYWRD_WRITE
+	KYWRD_WRITE,
+	KYWRD_DECIM
 };
 
 int get_keyword(char* str)
@@ -873,10 +875,10 @@ enum {
 	ALGO_GRT, ALGO_NOT,
 	ALGO_CEQU, ALGO_ARRAY_WRITE,
 	ALGO_ARRAY_READ, ALGO_PRINTV,
-	ALGO_OR
+	ALGO_OR, ALGO_DECIM
 };
 
-#define NUM_ALGORITHMS 13
+#define NUM_ALGORITHMS 14
 char algorithms[NUM_ALGORITHMS][256] = {
 	"0[-]1[-]2[-]3[-]x[0+x-]0[y[1+2+y-]2[y+2-]1[2+0-[2[-]3+0-]3[0+3-]2[1-[x-1[-]]+2-]1-]x+0]", /* division */
 	"0[-]1[-]x[1+x-]1[y[x+0+y-]0[y+0-]1-]", /* multiplication */
@@ -890,7 +892,8 @@ char algorithms[NUM_ALGORITHMS][256] = {
 	"z[-x+x>>>+<<<z]x[-z+x]y[-x+x>+<y]x[-y+x]y[-x+x>>+<<y]x[-y+x]>[>>>[-<<<<+>>>>]<[->+<]<[->+<]<[->+<]>-]>>>[-]<[->+<]<[[-<+>]<<<[->>>>+<<<<]>>-]<<", /* x(y) = z (array write) */
 	"z[-y+y>+<z]y[-z+y]z[-y+y>>+<<z]y[-z+y]>[>>>[-<<<<+>>>>]<<[->+<]<[->+<]>-]>>>[-<+<<+>>>]<<<[->>>+<<<]>[[-<+>]>[-<+>]<<<<[->>>>+<<<<]>>-]<<x[-]y>>>[-<<<x+y>>>]<<<", /* x = y(z) (array read) */
 	"0[-]1[-]2[-]3[-]4[-]5[-]6[-]7[-]x[0+1+x-]1[x+1-]0[>>+>+<<<-]>>>[<<<+>>>-]<<+>[<->[>++++++++++<[->-[>+>>]>[+[-<+>]>+>>]<<<<<]>[-]++++++++[<++++++>-]>[<<+>>-]>[<<+>>-]<<]>]<[->>++++++++[<++++++>-]]<[.[-]<]<", /* printv */
-	"0[-]1[-]x[1+x-]1[x-1[-]]y[1+0+y-]0[y+0-]1[x[-]-1[-]]" /* logical or */
+	"0[-]1[-]x[1+x-]1[x-1[-]]y[1+0+y-]0[y+0-]1[x[-]-1[-]]", /* logical or */
+	"[-]>[-]+[[-]>[-],[+[-----------[>[-]++++++[<------>-]<--<<[->>++++++++++<<]>>[-<<+>>]<+>]]]<]<0[x+0-]" /*  */
 };
 
 void emit_algo(int algo, int x, int y, int z)
@@ -1411,6 +1414,15 @@ void parse_keyword(Token** token)
 			SYNTAX_ASSERT(tok->type != TOK_STRING, "expected a string.")
 
 			emit_write_string(tok->value);
+		} break;
+		case KYWRD_DECIM: {
+			NEXT_TOKEN(tok)
+			SYNTAX_ASSERT(tok->type != TOK_IDENTIFIER, "expected an identifier.")
+			int var_index = get_variable_index(tok->value);
+			SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
+			SYNTAX_ASSERT(variables[var_index].type != VAR_CELL, "arguments for decimal statements must not be arrays.")
+
+			emit_algo(ALGO_DECIM, variables[var_index].location, -1, -1);
 		} break;
 	}
 
