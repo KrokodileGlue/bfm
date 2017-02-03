@@ -393,7 +393,7 @@ int is_hex_num(char* str)
 	return 1;
 }
 
-char* parse_escape_characters(char* str, int location)
+int parse_escape_characters(char* str, int location)
 {
 	char* buf = bfm_malloc(strlen(str) + 1);
 	
@@ -404,21 +404,11 @@ char* parse_escape_characters(char* str, int location)
 			i++;
 			
 			switch (str[i]) {
-				case 't':
-					*c = '\t';
-					break;
-				case 'n':
-					*c = '\n';
-					break;
-				case 'b':
-					*c = '\b';
-					break;
-				case 'f':
-					*c = '\f';
-					break;
-				case 'r':
-					*c = '\r';
-					break;
+				case 't': *c = '\t'; break;
+				case 'n': *c = '\n'; break;
+				case 'b': *c = '\b'; break;
+				case 'f': *c = '\f'; break;
+				case 'r': *c = '\r'; break;
 				case 'x':
 					if (strlen(&str[i]) < 3)
 						push_error(location + i, "malformed escape sequence.");
@@ -447,9 +437,10 @@ char* parse_escape_characters(char* str, int location)
 		i++;
 	}
 	*c = '\0';
-	
-	free(str);
-	return buf;
+	memcpy(str, buf, (c - buf) + 1);
+	free(buf);
+
+	return (int)(c - buf);
 }
 
 int get_operator_type(const char* str)
@@ -652,7 +643,7 @@ Token* tokenize(char* in)
 		}
 		
 		if (current->type == TOK_STRING || current->type == TOK_CHAR) {
-			current->value = parse_escape_characters(current->value, current->origin);
+			current->data = parse_escape_characters(current->value, current->origin);
 		}
 
 		if (current->type == TOK_NUMBER) {
@@ -932,32 +923,28 @@ void add(int amount)
 		for (i = 0; i > amount; i--) emit("-");
 }
 
-void emit_print_string(const char* str)
+void emit_print_string(Token* tok)
 {
 	move_pointer_to(temp_cells);
-	emit("[-]"), add(str[0]), emit(".");
+	emit("[-]"), add(tok->value[0]), emit(".");
 	
-	int i = 1;
-	while (str[i] != '\0') {
-		add(str[i] - str[i - 1]);
+	for (int i = 1; i < tok->data; i++) {
+		add(tok->value[i] - tok->value[i - 1]);
 		emit(".");
-		i++;
 	}
 }
 
-void emit_write_string(const char* str)
+void emit_write_string(Token* tok)
 {
-	emit("[-]"), add(str[0]);
+	emit("[-]"), add(tok->value[0]);
 
-	if (strlen(str)) {
-		int i = 1;
-		while (str[i] != '\0') {
-			emit(">[-]>[-]<<[>+>+<<-]>>[<<+>>-]<"), add(str[i] - str[i - 1]);
-			i++;
+	if (tok->data) {
+		for (int i = 1; i < tok->data; i++) {
+			emit(">[-]>[-]<<[>+>+<<-]>>[<<+>>-]<"), add(tok->value[i] - tok->value[i - 1]);
 		}
 	}
 
-	for (int i = 0; i < (int)strlen(str) - 1; i++) {
+	for (int i = 0; i < tok->data - 1; i++) {
 		emit("<");
 	}
 }
@@ -1320,13 +1307,11 @@ void parse_keyword(Token** token)
 
 			switch (tok->type) {
 				case TOK_STRING:
-					emit_print_string(tok->value);
+					emit_print_string(tok);
 					break;
 				case TOK_NUMBER: {
-					char c[2] = { 0, 0 };
-					c[0] = (char)tok->data;
-					
-					emit_print_string(c);
+					move_pointer_to(temp_cells);
+					emit("[-]"), add(tok->data), emit(".");
 					break;
 				}
 				case TOK_IDENTIFIER: {
@@ -1413,7 +1398,7 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 			SYNTAX_ASSERT(tok->type != TOK_STRING, "expected a string.")
 
-			emit_write_string(tok->value);
+			emit_write_string(tok);
 		} break;
 		case KYWRD_DECIM: {
 			NEXT_TOKEN(tok)
