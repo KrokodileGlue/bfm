@@ -315,7 +315,7 @@ typedef struct struct_token {
 		TOK_SYMBOL, TOK_CHAR,
 		TOK_KYWRD
 	} type;
-	
+
 	int origin, data; /* the index of the token's original location in the source file */
 	char* value; /* the body of the token */
 	
@@ -323,7 +323,22 @@ typedef struct struct_token {
 	struct struct_token* prev;
 } Token;
 
-#define NUM_OPERATORS 22
+enum {
+	MOP_EQUEQU, MOP_NEQU  ,
+	MOP_ANDAND, MOP_OROR  ,
+	MOP_ADDEQU, MOP_SUBEQU,
+	MOP_MULEQU, MOP_DIVEQU,
+	MOP_MODEQU, MOP_ADDADD,
+	MOP_SUBSUB, MOP_GEQU  ,
+	MOP_LEQU  , MOP_ADD   ,
+	MOP_SUB   , MOP_EX    ,
+	MOP_LESS  , MOP_MORE  ,
+	MOP_MOD   , MOP_EQU   ,
+	MOP_MUL   , MOP_DIV   ,
+	MOP_LBRACE, MOP_RBRACE
+};
+
+#define NUM_OPERATORS 24
 char operators[NUM_OPERATORS][3] = {
 	"==", "!=",
 	"&&", "||",
@@ -335,21 +350,8 @@ char operators[NUM_OPERATORS][3] = {
 	"-" , "!" ,
 	"<" , ">" ,
 	"%" , "=" ,
-	"*" , "/"
-};
-
-enum { /* math operators */
-	MOP_EQUEQU, MOP_NEQU  ,
-	MOP_ANDAND, MOP_OROR  ,
-	MOP_ADDEQU, MOP_SUBEQU,
-	MOP_MULEQU, MOP_DIVEQU,
-	MOP_MODEQU, MOP_ADDADD,
-	MOP_SUBSUB, MOP_GEQU  ,
-	MOP_LEQU  , MOP_ADD   ,
-	MOP_SUB   , MOP_EX    ,
-	MOP_LESS  , MOP_MORE  ,
-	MOP_MOD   , MOP_EQU   ,
-	MOP_MUL   , MOP_DIV
+	"*" , "/",
+	"(" , ")"
 };
 
 #define is_legal_in_identifer(c) ( \
@@ -455,7 +457,7 @@ int get_operator_type(const char* str)
 }
 
 #ifdef DEBUG
-char token_types[][11] = { /* for debugging */
+char token_types[][11] = {
 	"IDENTIFIER",
 	"NUMBER    ",
 	"STRING    ",
@@ -633,15 +635,18 @@ Token* tokenize(char* in)
 		current->value[i] = 0;
 		
 		if (current->type == TOK_IDENTIFIER) {
-			if (is_number(current->value))
+			if (is_number(current->value)) {
 				current->type = TOK_NUMBER;
-
-			if (get_keyword(current->value) != -1) {
+			} else if (get_keyword(current->value) != -1) {
 				current->type = TOK_KYWRD;
 				current->data = get_keyword(current->value);
 			}
 		}
 		
+		if (current->type == TOK_OPERATOR) {
+			current->data = get_operator_type(current->value);
+		}
+
 		if (current->type == TOK_STRING || current->type == TOK_CHAR) {
 			current->data = parse_escape_characters(current->value, current->origin);
 		}
@@ -884,7 +889,7 @@ char algorithms[NUM_ALGORITHMS][256] = {
 	"z[-y+y>+<z]y[-z+y]z[-y+y>>+<<z]y[-z+y]>[>>>[-<<<<+>>>>]<<[->+<]<[->+<]>-]>>>[-<+<<+>>>]<<<[->>>+<<<]>[[-<+>]>[-<+>]<<<<[->>>>+<<<<]>>-]<<x[-]y>>>[-<<<x+y>>>]<<<", /* x = y(z) (array read) */
 	"0[-]1[-]2[-]3[-]4[-]5[-]6[-]7[-]x[0+1+x-]1[x+1-]0[>>+>+<<<-]>>>[<<<+>>>-]<<+>[<->[>++++++++++<[->-[>+>>]>[+[-<+>]>+>>]<<<<<]>[-]++++++++[<++++++>-]>[<<+>>-]>[<<+>>-]<<]>]<[->>++++++++[<++++++>-]]<[.[-]<]<", /* printv */
 	"0[-]1[-]x[1+x-]1[x-1[-]]y[1+0+y-]0[y+0-]1[x[-]-1[-]]", /* logical or */
-	"[-]>[-]+[[-]>[-],[+[-----------[>[-]++++++[<------>-]<--<<[->>++++++++++<<]>>[-<<+>>]<+>]]]<]<0[x+0-]" /*  */
+	"[-]>[-]+[[-]>[-],[+[-----------[>[-]++++++[<------>-]<--<<[->>++++++++++<<]>>[-<<+>>]<+>]]]<]<0[x+0-]" /* decimal input */
 };
 
 void emit_algo(int algo, int x, int y, int z)
@@ -895,18 +900,10 @@ void emit_algo(int algo, int x, int y, int z)
 			emit_char(algorithms[algo][i]);
 		} else {
 			switch (algorithms[algo][i]) {
-				case 'x':
-					move_pointer_to(x);
-					break;
-				case 'y':
-					move_pointer_to(y);
-					break;
-				case 'z':
-					move_pointer_to(z);
-					break;
-				default:
-					move_pointer_to(temp_cells + (algorithms[algo][i] - '0'));
-					break;
+				case 'x': move_pointer_to(x); break;
+				case 'y': move_pointer_to(y); break;
+				case 'z': move_pointer_to(z); break;
+				default: move_pointer_to(temp_cells + (algorithms[algo][i] - '0')); break;
 			}
 		}
 		i++;
@@ -1045,6 +1042,157 @@ int get_definition_index(char* name)
 		}                                                               \
 	} while (0);
 
+#define PARSE_SYNTAX_ASSERT(err_cond, err_str)            \
+	do {                                              \
+		if (err_cond) {                           \
+			push_error(tok->origin, err_str); \
+			*token = tok;                     \
+			return - 1;                       \
+		}                                         \
+	} while(0);
+
+#define PARSE_NEXT_TOKEN(t)                                                         \
+	do {                                                                        \
+		if (!(t->next)) {                                                   \
+			push_error(t->origin, "expected a valid token to follow."); \
+			return -1;                                                  \
+		} else t = t->next;                                                 \
+	} while (0);
+
+double term(Token** token);
+double expression(Token** token);
+double primary(Token** token)
+{
+	Token* tok = *token;
+
+	if (tok->type == TOK_OPERATOR) {
+		PARSE_SYNTAX_ASSERT(tok->data != MOP_LBRACE, "unexpected token.")
+
+		double d = expression(&tok);
+		PARSE_NEXT_TOKEN(tok)
+		PARSE_SYNTAX_ASSERT(tok->type != TOK_OPERATOR, "unmatched lbrace.")
+		PARSE_SYNTAX_ASSERT(tok->data != MOP_RBRACE, "unmatched lbrace.")
+		return d;
+	} else if (tok->type == TOK_NUMBER) {
+		return tok->data;
+	}
+
+	PARSE_SYNTAX_ASSERT(1, "unexpected token.");
+}
+
+double term(Token** token)
+{
+	Token* tok = *token;
+	double left = primary(&tok);
+
+	while (1) {
+		switch (tok->data) {
+			case MOP_MUL:
+				left *= primary(&tok);
+				PARSE_NEXT_TOKEN(tok)
+				break;
+			case MOP_DIV:
+				left /= primary(&tok);
+				PARSE_NEXT_TOKEN(tok)
+				break;
+			default:
+				tok = tok->prev;
+				*token = tok;
+				return left;
+		}
+	}
+}
+
+double expression(Token** token)
+{
+	Token* tok = *token;
+
+	double left = term(&tok);
+	PARSE_NEXT_TOKEN(tok)
+
+	while (1) {
+		if (tok->type == TOK_OPERATOR) {
+			if (tok->data == MOP_ADD) {
+				left += term(&tok);
+				PARSE_NEXT_TOKEN(tok)
+			} else if (tok->data == MOP_SUB) {
+				left -= term(&tok);
+				PARSE_NEXT_TOKEN(tok)
+			}
+		} else {
+			tok = tok->prev;
+			*token = tok;
+			return left;
+		}
+	}
+}
+
+/* double expression()
+{
+	double left = term();
+
+	struct Token t = nextSym();
+
+	while (1) {
+		if (t.type == TOK_ADD) {
+			left += term();
+			t = nextSym();
+		} else if (t.type == TOK_SUB) {
+			left -= term();
+			t = nextSym();
+		} else {
+			putback();
+			return left;
+		}
+	}
+
+	return left;
+}
+
+double term()
+{
+	double left = primary();
+	struct Token t = nextSym();
+
+	while (1) {
+		switch (t.type) {
+			case TOK_MUL:
+				left *= primary();
+				t = nextSym();
+				break;
+			case TOK_DIV:
+				left /= primary();
+				t = nextSym();
+				break;
+			default:
+				putback();
+				return left;
+		}
+	}
+}
+
+double primary()
+{
+	struct Token t = nextSym();
+
+	switch (t.type) {
+		case TOK_LBRACE: {
+				double d = expression();
+				t = nextSym();
+				if (t.type != TOK_RBRACE)
+					fatal_error("missing closing brace.\n");
+				return d;
+			}
+			break;
+		case TOK_NUMBER:
+			return t.data;
+	}
+
+	fatal_error("unidentified token type.\n");
+
+	return 0;
+} */
+
 void parse_lefthand_side(Token** token, int* left, int* left_index, int* array)
 {
 	Token* tok = *token;
@@ -1102,8 +1250,9 @@ void parse_operation(Token** token)
 	parse_lefthand_side(&tok, &left, &left_index, &array);
 
 	NEXT_TOKEN(tok)
+	SYNTAX_ASSERT(tok->type != TOK_OPERATOR, "expected a valid operator.")
 
-	operation = get_operator_type(tok->value);
+	operation = tok->data;
 
 	int algo;
 	switch (operation) {
