@@ -936,13 +936,15 @@ void emit_write_string(Token* tok)
 	emit("[-]"), add(tok->value[0]);
 
 	if (tok->data) {
-		for (int i = 1; i < tok->data; i++) {
+		int i;
+		for (i = 1; i < tok->data - 1; i++) {
 			emit(">[-]>[-]<<[>+>+<<-]>>[<<+>>-]<"), add(tok->value[i] - tok->value[i - 1]);
 		}
-	}
+		emit(">[-]"), add(tok->value[i]);
 
-	for (int i = 0; i < tok->data - 1; i++) {
-		emit("<");
+		for (i = 0; i < tok->data - 1; i++) {
+			emit("<");
+		}
 	}
 }
 
