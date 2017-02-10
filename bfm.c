@@ -335,10 +335,12 @@ enum {
 	MOP_LESS  , MOP_MORE  ,
 	MOP_MOD   , MOP_EQU   ,
 	MOP_MUL   , MOP_DIV   ,
-	MOP_LBRACE, MOP_RBRACE
+	MOP_LBRACE, MOP_RBRACE,
+	MOP_SEMICOLON,
+	MOP_LBRACK, MOP_RBRACK
 };
 
-#define NUM_OPERATORS 24
+#define NUM_OPERATORS 27
 char operators[NUM_OPERATORS][3] = {
 	"==", "!=",
 	"&&", "||",
@@ -351,7 +353,9 @@ char operators[NUM_OPERATORS][3] = {
 	"<" , ">" ,
 	"%" , "=" ,
 	"*" , "/",
-	"(" , ")"
+	"(" , ")",
+	";" , "[",
+	"]"
 };
 
 #define is_legal_in_identifer(c) ( \
@@ -1036,11 +1040,11 @@ int get_definition_index(char* name)
 		} else t = t->next;                                                 \
 	} while (0);
 
-#define EXPECT_TOKEN(t,str)                                                     \
+#define EXPECT_TOKEN(t, ttype, str)                                             \
 	do {                                                                    \
 		NEXT_TOKEN(t)                                                   \
-		if (strcmp(t->value,str)) {                                     \
-			push_error(t->origin, "expected token \"%s\".\n", str); \
+		if (strcmp(t->value,str) || t->type != ttype) {                 \
+			push_error(t->origin, "unexpected token \"%s\", expected \"%s\".\n", tok->value, str); \
 		}                                                               \
 	} while (0);
 
@@ -1067,40 +1071,53 @@ double primary(Token** token)
 {
 	Token* tok = *token;
 
-	if (tok->type == TOK_OPERATOR) {
-		PARSE_SYNTAX_ASSERT(tok->data != MOP_LBRACE, "unexpected token.")
+	Token* parse_tok = tok;
+	int definition_index = get_definition_index(tok->value);
+	if (definition_index != -1) {
+		parse_tok = &(definitions[definition_index].tok);
+	}
+
+	if (parse_tok->type == TOK_OPERATOR) {
+		PARSE_SYNTAX_ASSERT(tok->data != MOP_LBRACE, "unsupported operator.")
 
 		double d = expression(&tok);
 		PARSE_NEXT_TOKEN(tok)
 		PARSE_SYNTAX_ASSERT(tok->type != TOK_OPERATOR, "unmatched lbrace.")
 		PARSE_SYNTAX_ASSERT(tok->data != MOP_RBRACE, "unmatched lbrace.")
 		return d;
-	} else if (tok->type == TOK_NUMBER) {
-		return tok->data;
+	} else if (parse_tok->type == TOK_NUMBER) {
+		return (double)parse_tok->data;
 	}
 
-	PARSE_SYNTAX_ASSERT(1, "unexpected token.");
+	PARSE_SYNTAX_ASSERT(1, "unexpected token, expected a number or operator.");
 }
 
 double term(Token** token)
 {
 	Token* tok = *token;
 	double left = primary(&tok);
+	PARSE_NEXT_TOKEN(tok)
 
 	while (1) {
-		switch (tok->data) {
-			case MOP_MUL:
-				left *= primary(&tok);
-				PARSE_NEXT_TOKEN(tok)
-				break;
-			case MOP_DIV:
-				left /= primary(&tok);
-				PARSE_NEXT_TOKEN(tok)
-				break;
-			default:
-				tok = tok->prev;
-				*token = tok;
-				return left;
+		if (tok->type == TOK_OPERATOR) {
+			switch (tok->data) {
+				case MOP_MUL:
+					PARSE_NEXT_TOKEN(tok)
+					left *= primary(&tok);
+					PARSE_NEXT_TOKEN(tok)
+					break;
+				case MOP_DIV:
+					PARSE_NEXT_TOKEN(tok)
+					left /= primary(&tok);
+					PARSE_NEXT_TOKEN(tok)
+					break;
+				default:
+					*token = tok->prev;
+					return left;
+			}
+		} else {
+			*token = tok->prev;
+			return left;
 		}
 	}
 }
@@ -1120,80 +1137,16 @@ double expression(Token** token)
 			} else if (tok->data == MOP_SUB) {
 				left -= term(&tok);
 				PARSE_NEXT_TOKEN(tok)
-			}
-		} else {
-			tok = tok->prev;
-			*token = tok;
-			return left;
-		}
-	}
-}
-
-/* double expression()
-{
-	double left = term();
-
-	struct Token t = nextSym();
-
-	while (1) {
-		if (t.type == TOK_ADD) {
-			left += term();
-			t = nextSym();
-		} else if (t.type == TOK_SUB) {
-			left -= term();
-			t = nextSym();
-		} else {
-			putback();
-			return left;
-		}
-	}
-
-	return left;
-}
-
-double term()
-{
-	double left = primary();
-	struct Token t = nextSym();
-
-	while (1) {
-		switch (t.type) {
-			case TOK_MUL:
-				left *= primary();
-				t = nextSym();
-				break;
-			case TOK_DIV:
-				left /= primary();
-				t = nextSym();
-				break;
-			default:
-				putback();
+			} else {
+				*token = tok->prev;
 				return left;
+			}
+		} else {
+			*token = tok->prev;
+			return left;
 		}
 	}
 }
-
-double primary()
-{
-	struct Token t = nextSym();
-
-	switch (t.type) {
-		case TOK_LBRACE: {
-				double d = expression();
-				t = nextSym();
-				if (t.type != TOK_RBRACE)
-					fatal_error("missing closing brace.\n");
-				return d;
-			}
-			break;
-		case TOK_NUMBER:
-			return t.data;
-	}
-
-	fatal_error("unidentified token type.\n");
-
-	return 0;
-} */
 
 void parse_lefthand_side(Token** token, int* left, int* left_index, int* array)
 {
@@ -1204,31 +1157,21 @@ void parse_lefthand_side(Token** token, int* left, int* left_index, int* array)
 
 	if (variables[*left_index].type == VAR_ARRAY) {
 		*array = 1;
-		EXPECT_TOKEN(tok, "[")
+		EXPECT_TOKEN(tok, TOK_OPERATOR, "[")
 		NEXT_TOKEN(tok)
 
-		Token* parse_tok = tok;
-		int definition_index = get_definition_index(tok->value);
-		if (definition_index != -1) {
-			parse_tok = &(definitions[definition_index].tok);
-		}
-
 		/* now get the index value, we must account for variables and constants */
-		if (parse_tok->type == TOK_NUMBER) {
-			move_pointer_to(temp_x_index);
-			emit("[-]");
-			add(parse_tok->data);
-		} else if (parse_tok->type == TOK_IDENTIFIER) {
-			int subscript_index = get_variable_index(parse_tok->value);
-
-			SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
-			
+		int subscript_index = get_variable_index(tok->value);
+		if (tok->type == TOK_IDENTIFIER && subscript_index != -1) {
 			emit_algo(ALGO_EQU, temp_x_index, variables[subscript_index].location, -1);
 		} else {
-			SYNTAX_ASSERT(1, "expected a valid subscript.")
+			int a = expression(&tok);
+			move_pointer_to(temp_x_index);
+			emit("[-]");
+			add(a);
 		}
 
-		EXPECT_TOKEN(tok, "]")
+		EXPECT_TOKEN(tok, TOK_OPERATOR, "]")
 
 		emit_algo(ALGO_ARRAY_READ, temp_x, variables[*left_index].location, temp_x_index); /* x = y(z) */
 		*left = temp_x;
@@ -1279,40 +1222,24 @@ void parse_operation(Token** token)
 
 	NEXT_TOKEN(tok)
 
-	Token* parse_tok = tok;
-	int definition_index = get_definition_index(tok->value);
-	if (definition_index != -1) {
-		parse_tok = &(definitions[definition_index].tok);
-	}
-
 	int right_index = get_variable_index(tok->value);
 
 	if (tok->type == TOK_IDENTIFIER && right_index != -1) {
 		if (variables[right_index].type == VAR_ARRAY) {
-			EXPECT_TOKEN(tok, "[")
+			EXPECT_TOKEN(tok, TOK_OPERATOR, "[")
 			NEXT_TOKEN(tok)
 
-			parse_tok = tok;
-			definition_index = get_definition_index(tok->value);
-			if (definition_index != -1) {
-				parse_tok = &(definitions[definition_index].tok);
-			}
-
-			/* now get the index value, we must account for variables and constants */
-			if (parse_tok->type == TOK_NUMBER) {
-				move_pointer_to(temp_y_index);
-				emit("[-]");
-				add(parse_tok->data);
-			} else if (parse_tok->type == TOK_IDENTIFIER) {
-				int subscript_index = get_variable_index(parse_tok->value);
-				SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
-
+			int subscript_index = get_variable_index(tok->value);
+			if (tok->type == TOK_IDENTIFIER && subscript_index != -1) {
 				emit_algo(ALGO_EQU, temp_y_index, variables[subscript_index].location, -1);
 			} else {
-				SYNTAX_ASSERT(1, "not a valid subscript.")
+				int num = expression(&tok);
+				move_pointer_to(temp_y_index);
+				emit("[-]");
+				add(num);
 			}
 
-			EXPECT_TOKEN(tok, "]")
+			EXPECT_TOKEN(tok, TOK_OPERATOR, "]")
 
 			emit_algo(ALGO_ARRAY_READ, temp_y, variables[right_index].location, temp_y_index); /* x = y(z) */
 			right = temp_y;
@@ -1325,31 +1252,36 @@ void parse_operation(Token** token)
 			}
 		}
 	} else {
-		SYNTAX_ASSERT(parse_tok->type != TOK_NUMBER, "invalid identifier.")
+		int a = expression(&tok);
+		EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
 
 		if (operation == MOP_ADD) {
 			move_pointer_to(left);
-			add(parse_tok->data);
+			add(a);
+
 			*token = tok;
 			FERRY_ARRAY_BACK
 			return;
 		} else if (operation == MOP_SUB) {
 			move_pointer_to(left);
-			add(-parse_tok->data);
+			add(-a);
+
 			*token = tok;
 			FERRY_ARRAY_BACK
 			return;
 		} else if (operation == MOP_EQU) {
 			move_pointer_to(left);
 			emit("[-]");
-			add(parse_tok->data);
+			add(a);
+
 			*token = tok;
 			FERRY_ARRAY_BACK
 			return;
 		} else {
 			move_pointer_to(temp_y);
 			emit("[-]");
-			add(parse_tok->data);
+			add(a);
+
 			right = temp_y;
 		}
 	}
@@ -1453,7 +1385,7 @@ void parse_keyword(Token** token)
 			int variable_location = variables[var_index].location;
 			emit_algo(ALGO_NOT, variable_location, -1, -1);
 		} break;
-		case KYWRD_PRINT:
+		case KYWRD_PRINT: /* TODO: make this work with the expression parser */
 			NEXT_TOKEN(tok)
 
 			switch (tok->type) {
@@ -1472,7 +1404,7 @@ void parse_keyword(Token** token)
 					SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
 
 					if (variables[var_index].type == VAR_ARRAY) {
-						EXPECT_TOKEN(tok, "[")
+						EXPECT_TOKEN(tok, TOK_OPERATOR, "[")
 						NEXT_TOKEN(tok)
 
 						if (tok->type == TOK_NUMBER) {
@@ -1488,7 +1420,7 @@ void parse_keyword(Token** token)
 							SYNTAX_ASSERT(1, "expected a number or an identifier.")
 						}
 
-						EXPECT_TOKEN(tok, "]")
+						EXPECT_TOKEN(tok, TOK_OPERATOR, "]")
 
 						emit_algo(ALGO_ARRAY_READ, temp_x, variables[var_index].location, temp_x_index); /* x = y(z) */
 						left = temp_x;
@@ -1532,7 +1464,16 @@ void parse_keyword(Token** token)
 			char* name = tok->value;
 			NEXT_TOKEN(tok)
 
-			add_definition(name, *tok);
+			if (tok->type == TOK_STRING) {
+				add_definition(name, *tok);
+			} else {
+				double data = expression(&tok);
+				EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
+				Token num;
+				num.type = TOK_NUMBER;
+				num.data = (int)data;
+				add_definition(name, num);
+			}
 		} break;
 		case KYWRD_INPUT: {
 			NEXT_TOKEN(tok)

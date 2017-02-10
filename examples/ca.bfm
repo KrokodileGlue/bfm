@@ -1,13 +1,13 @@
 print "         One Dimensional Cellular Automata in brainfuck\n"
 print "                  by retrosegfault.tumblr.com\n"
 
-define WIDTH 66
-define WIDTH_MAX_INDEX 65
+define WIDTH 66;
+define WIDTH_MAX_INDEX 65;
 
 array digits 10
 array field 136
 
-field[98] = 1 // initial condition
+field[98] = 1; // initial condition
 
 var generation     var i
 var result         var flag
@@ -20,11 +20,11 @@ var not_left       var not_center       var not_right
 var algo
 print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\n"
 print "select an algorithm (0 - 3): "
-input algo        algo - '0'
+input algo        algo - '0';
 input null /* eat the the return character */
 
 print "enter a number of generations: "
-// decimal generations
+// decimal generation
 
 /* the following code takes in a decimal number as an input
  * and turns it into a cell value. it is made obsolete by
@@ -34,54 +34,54 @@ print "enter a number of generations: "
  * this code is kept here as an example of a practical
  * programming task in bfm. */
 
-var digit_ptr        flag = 1
+var digit_ptr        flag = 1;
 while flag
 	var c        input c
 	digits[digit_ptr] = c
-	digit_ptr         + 1
+	digit_ptr         + 1;
 
-	flag = c     flag == 10 /* do this loop until we
-	                         * hit a return */
+	flag = c     flag == 10; /* do this loop until we
+	                          * hit a return */
 	not flag
 end
-digit_ptr - 1 /* discard the return */
+digit_ptr - 1; /* discard the return */
 
 var digit
 while digit_ptr
-	digit_ptr - 1
+	digit_ptr - 1;
 
 	var c
 	c = digits[digit_ptr]
-	c - '0'
+	c - '0';
 
 	if digit
-		var temp    temp = 1
+		var temp    temp = 1;
 
 		i = digit
 		while i
-			i - 1
-			temp * 10
+			i - 1;
+			temp * 10;
 		end
 		c * temp
 	end
 	generation + c
-	digit      + 1
+	digit      + 1;
 end
 
 while generation
-	generation - 1
+	generation - 1;
 	
-	i = WIDTH
+	i = WIDTH;
 	while i
-		i - 1
+		i - 1;
 		
 		var index    index = i
-		index + WIDTH
+		index + WIDTH;
 		field[i] = field[index]
 	end
 
-	flag = 1
-	i = 0
+	flag = 1;
+	i = 0;
 	while flag
 		var temp
 		temp = field[i]
@@ -94,32 +94,32 @@ while generation
 			print " "
 		end
 		
-		i + 1
-		flag = i    flag == WIDTH
+		i + 1;
+		flag = i    flag == WIDTH;
 		not flag
 	end
 	print "\n"
 	
-	i = WIDTH
+	i = WIDTH;
 	while i // go through the field and do the logic
-		i - 1
+		i - 1;
 
 		var is_i_width      is_i_width = i
 		var is_i_zero       is_i_zero  = i
-		is_i_zero  == 0
-		is_i_width == WIDTH_MAX_INDEX
+		is_i_zero  == 0;
+		is_i_width == WIDTH_MAX_INDEX;
 
 		left_index   = i
-		left_index   - 1
+		left_index   - 1;
 		center_index = i
 		right_index  = i
-		right_index  + 1
+		right_index  + 1;
 		
 		if is_i_width
-			right_index = 0
+			right_index = 0;
 		end
 		if is_i_zero
-			left_index  = WIDTH_MAX_INDEX
+			left_index  = WIDTH_MAX_INDEX;
 		end
 		
 		left   = field[left_index]
@@ -132,21 +132,21 @@ while generation
 		not_center = center    not not_center
 		not_right  = right     not not_right
 		
-		result = 0
+		result = 0;
 		
 		// rule 90
 		var temp
-		temp = algo     temp == 0
+		temp = algo     temp == 0;
 		if temp
 			if left
 				if center
 					if not_right
-						result = 1
+						result = 1;
 					end
 				end
 				if not_center
 					if not_right
-						result = 1
+						result = 1;
 					end
 				end
 			end
@@ -154,55 +154,55 @@ while generation
 			if not_left
 				if center
 					if right
-						result = 1
+						result = 1;
 					end
 				end
 				if not_center
 					if right
-						result = 1
+						result = 1;
 					end
 				end
 			end
 		end
 		
 		// rule 30
-		temp = algo     temp == 1
+		temp = algo     temp == 1;
 		if temp
 			if left
 				if not_center
 					if not_right
-						result = 1
+						result = 1;
 					end
 				end
 			end
 			
 			if center
 				if not_left
-					result = 1
+					result = 1;
 				end
 			end
 			
 			if right
 				if not_center
 					if not_left
-						result = 1
+						result = 1;
 					end
 				end
 			end
 		end
 		
 		// rule 150
-		temp = algo     temp == 2
+		temp = algo     temp == 2;
 		if temp
 			if left
 				if center
 					if right
-						result = 1
+						result = 1;
 					end
 				end
 				if not_center
 					if not_right
-						result = 1
+						result = 1;
 					end
 				end
 			end
@@ -210,7 +210,7 @@ while generation
 			if center
 				if not_left
 					if not_right
-						result = 1
+						result = 1;
 					end
 				end
 			end
@@ -218,25 +218,25 @@ while generation
 			if right
 				if not_center
 					if not_left
-						result = 1
+						result = 1;
 					end
 				end
 			end
 		end
 
 		// rule 73
-		temp = algo     temp == 3
+		temp = algo     temp == 3;
 		if temp
 			if not_left
 				if not_center
 					if not_right
-						result = 1
+						result = 1;
 					end
 				end
 
 				if center
 					if right
-						result = 1 
+						result = 1;
 					end
 				end
 			end
@@ -244,14 +244,14 @@ while generation
 			if left
 				if center
 					if not_right
-						result = 1
+						result = 1;
 					end
 				end
 			end
 		end
 
 		var index    index = i
-		index + WIDTH
+		index + WIDTH;
 		
 		field[index] = result
 	end

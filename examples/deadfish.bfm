@@ -1,45 +1,45 @@
-var flag     flag = 1
+var flag     flag = 1;
 var cell     var temp
 
 while flag
 	print ">> "
-	var eol     eol = 1
+	var eol     eol = 1;
 	var c
 	while eol
 		input c
-		var p       p = 0
+		var p       p = 0;
 
-		temp = c    temp == 'i'
+		temp = c    temp == 'i';
 		if temp
-			cell + 1
+			cell + 1;
 		end
 
-		temp = c    temp == 'd'
+		temp = c    temp == 'd';
 		if temp
-			cell - 1
+			cell - 1;
 		end
 		
-		temp = c    temp == 's'
+		temp = c    temp == 's';
 		if temp
 			cell * cell
 		end
 
-		temp = c    temp == 'o'
+		temp = c    temp == 'o';
 		if temp
-			p = 1
+			p = 1;
 			print cell
 		end
 
-		temp = c    temp == 'h'
+		temp = c    temp == 'h';
 		if temp
-			flag = 0
+			flag = 0;
 		end
 
 		if p
 			print "\n"
 		end
 
-		eol = c     eol == '\n'
+		eol = c     eol == '\n';
 		not eol
 	end
 end
