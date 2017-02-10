@@ -1077,13 +1077,16 @@ double primary(Token** token)
 		parse_tok = &(definitions[definition_index].tok);
 	}
 
-	if (parse_tok->type == TOK_OPERATOR) {
-		PARSE_SYNTAX_ASSERT(tok->data != MOP_LBRACE, "unsupported operator.")
-
+	if (parse_tok->type == TOK_OPERATOR && tok->data == MOP_LBRACE) {
+		PARSE_NEXT_TOKEN(tok)
 		double d = expression(&tok);
 		PARSE_NEXT_TOKEN(tok)
+
+		/* TODO: replace this with EXPECT_TOKEN */
 		PARSE_SYNTAX_ASSERT(tok->type != TOK_OPERATOR, "unmatched lbrace.")
 		PARSE_SYNTAX_ASSERT(tok->data != MOP_RBRACE, "unmatched lbrace.")
+
+		*token = tok;
 		return d;
 	} else if (parse_tok->type == TOK_NUMBER) {
 		return (double)parse_tok->data;
@@ -1132,9 +1135,11 @@ double expression(Token** token)
 	while (1) {
 		if (tok->type == TOK_OPERATOR) {
 			if (tok->data == MOP_ADD) {
+				PARSE_NEXT_TOKEN(tok)
 				left += term(&tok);
 				PARSE_NEXT_TOKEN(tok)
 			} else if (tok->data == MOP_SUB) {
+				PARSE_NEXT_TOKEN(tok)
 				left -= term(&tok);
 				PARSE_NEXT_TOKEN(tok)
 			} else {
