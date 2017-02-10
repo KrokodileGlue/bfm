@@ -1,15 +1,15 @@
 print "         One Dimensional Cellular Automata in brainfuck\n"
 print "                  by retrosegfault.tumblr.com\n\n"
 
-define WIDTH 66
-define WIDTH_MAX_INDEX 65
-define NUM_GENERATIONS 50
+define WIDTH 66;
+define WIDTH_MAX_INDEX 65;
+define NUM_GENERATIONS 50;
 
 array field 136
 
-field[98] = 1 // initial condition
+field[98] = 1; // initial condition
 
-var generation     generation = NUM_GENERATIONS
+var generation     generation = NUM_GENERATIONS;
 var i
 var result
 var flag
@@ -19,19 +19,19 @@ var left_index     var center_index     var right_index
 var not_left       var not_center       var not_right
 
 while generation
-	generation - 1
+	generation - 1;
 	
-	i = WIDTH
+	i = WIDTH;
 	while i
-		i - 1
+		i - 1;
 		
 		var index    index = i
-		index + WIDTH
+		index + WIDTH;
 		field[i] = field[index]
 	end
 
-	flag = 1
-	i = 0
+	flag = 1;
+	i = 0;
 	while flag
 		var temp
 		temp = field[i]
@@ -44,32 +44,32 @@ while generation
 			print " "
 		end
 		
-		i + 1
-		flag = i    flag == WIDTH
+		i + 1;
+		flag = i    flag == WIDTH;
 		not flag
 	end
 	print "\n"
 	
-	i = WIDTH
+	i = WIDTH;
 	while i // this loop will go through the field and do the logic
-		i - 1
+		i - 1;
 
 		var is_i_width      is_i_width = i
 		var is_i_zero       is_i_zero  = i
-		is_i_zero  == 0
-		is_i_width == WIDTH_MAX_INDEX
+		is_i_zero  == 0;
+		is_i_width == WIDTH_MAX_INDEX;
 
 		left_index   = i
-		left_index   - 1
+		left_index   - 1;
 		center_index = i
 		right_index  = i
-		right_index  + 1
+		right_index  + 1;
 		
 		if is_i_width
-			right_index = 0
+			right_index = 0;
 		end
 		if is_i_zero
-			left_index  = WIDTH_MAX_INDEX
+			left_index  = WIDTH_MAX_INDEX;
 		end
 		
 		left   = field[left_index]
@@ -82,18 +82,18 @@ while generation
 		not_center = center    not not_center
 		not_right  = right     not not_right
 		
-		result = 0
+		result = 0;
 		
 		// rule 90
 		/* if left
 			if center
 				if not_right
-					result = 1
+					result = 1;
 				end
 			end
 			if not_center
 				if not_right
-					result = 1
+					result = 1;
 				end
 			end
 		end
@@ -101,12 +101,12 @@ while generation
 		if not_left
 			if center
 				if right
-					result = 1
+					result = 1;
 				end
 			end
 			if not_center
 				if right
-					result = 1
+					result = 1;
 				end
 			end
 		end */
@@ -115,21 +115,21 @@ while generation
 		/* if left
 			if not_center
 				if not_right
-					result = 1
+					result = 1;
 				end
 			end
 		end
 		
 		if center
 			if not_left
-				result = 1
+				result = 1;
 			end
 		end
 		
 		if right
 			if not_center
 				if not_left
-					result = 1
+					result = 1;
 				end
 			end
 		end */
@@ -138,12 +138,12 @@ while generation
 		if left
 			if center
 				if right
-					result = 1
+					result = 1;
 				end
 			end
 			if not_center
 				if not_right
-					result = 1
+					result = 1;
 				end
 			end
 		end
@@ -151,7 +151,7 @@ while generation
 		if center
 			if not_left
 				if not_right
-					result = 1
+					result = 1;
 				end
 			end
 		end
@@ -159,7 +159,7 @@ while generation
 		if right
 			if not_center
 				if not_left
-					result = 1
+					result = 1;
 				end
 			end
 		end
@@ -168,13 +168,13 @@ while generation
 		/* if not_left
 			if not_center
 				if not_right
-					result = 1
+					result = 1;
 				end
 			end
 
 			if center
 				if right
-					result = 1 
+					result = 1;
 				end
 			end
 		end
@@ -182,13 +182,13 @@ while generation
 		if left
 			if center
 				if not_right
-					result = 1
+					result = 1;
 				end
 			end
 		end */
 
 		var index    index = i
-		index + WIDTH
+		index + WIDTH;
 		
 		field[index] = result
 	end
