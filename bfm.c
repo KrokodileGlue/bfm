@@ -1385,54 +1385,44 @@ void parse_keyword(Token** token)
 			int variable_location = variables[var_index].location;
 			emit_algo(ALGO_NOT, variable_location, -1, -1);
 		} break;
-		case KYWRD_PRINT: /* TODO: make this work with the expression parser */
-			NEXT_TOKEN(tok)
+		case KYWRD_PRINT: {
+				NEXT_TOKEN(tok)
 
-			switch (tok->type) {
-				case TOK_STRING:
+				int var_index = get_variable_index(tok->value);
+				if (tok->type == TOK_STRING) {
 					emit_print_string(tok);
-					break;
-				case TOK_NUMBER: {
-					move_pointer_to(temp_cells);
-					emit("[-]"), add(tok->data), emit(".");
-					break;
-				}
-				case TOK_IDENTIFIER: {
-					int var_index = get_variable_index(tok->value);
+				} else if (tok->type == TOK_IDENTIFIER && var_index != -1) {
 					int left = 0;
-
-					SYNTAX_ASSERT(var_index == -1, "invalid identifier.")
-
 					if (variables[var_index].type == VAR_ARRAY) {
 						EXPECT_TOKEN(tok, TOK_OPERATOR, "[")
 						NEXT_TOKEN(tok)
 
-						if (tok->type == TOK_NUMBER) {
-							move_pointer_to(temp_x_index);
-							emit("[-]");
-							add(tok->data);
-						} else if (tok->type == TOK_IDENTIFIER) {
-							int subscript_index = get_variable_index(tok->value);
-
-							SYNTAX_ASSERT(subscript_index == -1, "unrecognized identifier.")
-							emit_algo(ALGO_EQU, temp_x_index, variables[subscript_index].location, -1);
+						int subscript_index = get_variable_index(tok->value);
+						if (tok->type == TOK_IDENTIFIER && subscript_index != -1) {
+							emit_algo(ALGO_EQU, temp_y_index, variables[subscript_index].location, -1);
 						} else {
-							SYNTAX_ASSERT(1, "expected a number or an identifier.")
+							int num = expression(&tok);
+							move_pointer_to(temp_y_index);
+							emit("[-]");
+							add(num);
 						}
 
 						EXPECT_TOKEN(tok, TOK_OPERATOR, "]")
 
-						emit_algo(ALGO_ARRAY_READ, temp_x, variables[var_index].location, temp_x_index); /* x = y(z) */
-						left = temp_x;
+						emit_algo(ALGO_ARRAY_READ, temp_y, variables[var_index].location, temp_y_index); /* x = y(z) */
+						left = temp_y;
 					} else {
 						left = variables[var_index].location;
 					}
 
 					emit_algo(ALGO_PRINTV, left, -1, -1);
-					break;
+				} else {
+					int a = expression(&tok);
+					EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
+					
+					move_pointer_to(temp_cells);
+					emit("[-]"), add(a), emit(".");
 				}
-				default:
-					push_error(-1, "unexpected token \"%s\", expected a string, number, or identifier.", tok->value);
 			} break;
 		case KYWRD_ARRAY: {
 			NEXT_TOKEN(tok)
