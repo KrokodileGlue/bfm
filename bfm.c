@@ -5,8 +5,6 @@
 #include <ctype.h>
 #include <assert.h>
 
-#define DEBUG 1
-
 void check_errors();
 
 void init_errors(char*, char*);
@@ -1431,19 +1429,13 @@ void parse_keyword(Token** token)
 			} break;
 		case KYWRD_ARRAY: {
 			NEXT_TOKEN(tok)
-
+			SYNTAX_ASSERT(tok->type != TOK_IDENTIFIER, "expected an identifier.")
 			char* name = tok->value;
 			NEXT_TOKEN(tok)
 
-			Token* parse_tok = tok;
-			
-			int definition_index = get_definition_index(tok->value);
-			if (definition_index != -1) {
-				parse_tok = &(definitions[definition_index].tok);
-			}
-
-			SYNTAX_ASSERT(parse_tok->type != TOK_NUMBER, "expected a number or constant identifier.")
-			add_variable(name, parse_tok->data, VAR_ARRAY, tok->origin);
+			int a = expression(&tok);
+			EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
+			add_variable(name, a, VAR_ARRAY, tok->origin);
 		} break;
 		case KYWRD_BF: {
 			NEXT_TOKEN(tok)

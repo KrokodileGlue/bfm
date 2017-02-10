@@ -2,12 +2,11 @@ print "         One Dimensional Cellular Automata in brainfuck\n"
 print "                  by retrosegfault.tumblr.com\n"
 
 define WIDTH 66;
-define WIDTH_MAX_INDEX 65;
 
-array digits 10
-array field 136
+array digits 3;
+array field (WIDTH * 2);
 
-field[98] = 1; // initial condition
+field[WIDTH + WIDTH / 2] = 1; // initial condition
 
 var generation     var i
 var result         var flag
@@ -107,7 +106,7 @@ while generation
 		var is_i_width      is_i_width = i
 		var is_i_zero       is_i_zero  = i
 		is_i_zero  == 0;
-		is_i_width == WIDTH_MAX_INDEX;
+		is_i_width == WIDTH - 1;
 
 		left_index   = i
 		left_index   - 1;
@@ -119,7 +118,7 @@ while generation
 			right_index = 0;
 		end
 		if is_i_zero
-			left_index  = WIDTH_MAX_INDEX;
+			left_index  = WIDTH - 1;
 		end
 		
 		left   = field[left_index]
