@@ -9,8 +9,8 @@ array field (WIDTH * 2);
 field[WIDTH + WIDTH / 2] = 1; // initial condition
 
 var generation     var i
-var result         var flag
-var null /* used to throw away values we don't want to keep */
+var flag           var null /* used to throw away values
+                             * we don't want to keep */
 
 var left           var center           var right
 var left_index     var center_index     var right_index
@@ -70,6 +70,7 @@ end
 while generation
 	generation - 1;
 	
+	/* copy the buffer into the main field */
 	i = WIDTH;
 	while i
 		i - 1;
@@ -79,6 +80,7 @@ while generation
 		field[i] = field[index]
 	end
 
+	/* print the field */
 	flag = 1;
 	i = 0;
 	while flag
@@ -99,8 +101,10 @@ while generation
 	end
 	print "\n"
 	
+	/* do the logic */
 	i = WIDTH;
-	while i // go through the field and do the logic
+	while i
+		var result          result = 0;
 		i - 1;
 
 		var is_i_width      is_i_width = i
@@ -125,13 +129,12 @@ while generation
 		center = field[center_index]
 		right  = field[right_index]
 		
-		// left center and right now hold the (wrapped) cell values
+		/* left center and right now hold the cell
+		 * values, bounded by the width */
 		
 		not_left   = left      not not_left
 		not_center = center    not not_center
 		not_right  = right     not not_right
-		
-		result = 0;
 		
 		// rule 90
 		var temp
