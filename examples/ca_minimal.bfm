@@ -9,9 +9,7 @@ array field (WIDTH * 2);
 field[WIDTH + WIDTH / 2] = 1; // initial condition
 
 var generation     generation = NUM_GENERATIONS;
-var i
-var result
-var flag
+var i              var flag
 
 var left           var center           var right
 var left_index     var center_index     var right_index
@@ -51,6 +49,7 @@ while generation
 	
 	i = WIDTH;
 	while i // this loop will go through the field and do the logic
+		var result          result = 0;
 		i - 1;
 
 		var is_i_width      is_i_width = i
@@ -80,8 +79,6 @@ while generation
 		not_left   = left      not not_left
 		not_center = center    not not_center
 		not_right  = right     not not_right
-		
-		result = 0;
 		
 		// rule 90
 		/* if left

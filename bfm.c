@@ -961,6 +961,28 @@ void emit_write_string(Token* tok)
 
 typedef struct {
 	char* name;
+	Token tok;
+} Definition;
+Definition definitions[4096];
+int num_definitions = 0;
+
+void add_definition(char* name, Token tok)
+{
+	definitions[num_definitions].name = name;
+	definitions[num_definitions++].tok = tok;
+}
+
+int get_definition_index(char* name)
+{
+	for (int i = 0; i < num_definitions; i++) {
+		if (!strcmp(definitions[i].name, name))
+			return i;
+	}
+	return -1;
+}
+
+typedef struct {
+	char* name;
 	int location, scope, num_elements;
 	enum {
 		VAR_CELL, VAR_ARRAY
@@ -982,7 +1004,10 @@ void add_variable(char* varname, int num_elements, int type, int location)
 {
 	if (get_variable_index(varname) != -1) {
 		push_error(location, "variable already defined.");
-		return;
+	}
+
+	if (get_definition_index(varname) != -1) {
+		push_error(location, "variable name conflicts with a constant definition.");
 	}
 
 	if (type == VAR_CELL) {
@@ -1006,28 +1031,6 @@ void kill_variables_of_scope(int killscope)
 			num_variables--;
 		}
 	}
-}
-
-typedef struct {
-	char* name;
-	Token tok;
-} Definition;
-Definition definitions[4096];
-int num_definitions = 0;
-
-void add_definition(char* name, Token tok)
-{
-	definitions[num_definitions].name = name;
-	definitions[num_definitions++].tok = tok;
-}
-
-int get_definition_index(char* name)
-{
-	for (int i = 0; i < num_definitions; i++) {
-		if (!strcmp(definitions[i].name, name))
-			return i;
-	}
-	return -1;
 }
 
 #define NEXT_TOKEN(t)                                                               \
