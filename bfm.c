@@ -7,6 +7,7 @@
 
 void check_errors();
 
+int verbose = 0;
 void init_errors(char*, char*);
 void fatal_error(int, const char*, ...);
 int get_line_num(int);
@@ -245,8 +246,14 @@ void push_error(int errloc /* the location of the error */, const char* message,
 
 void list_errors()
 {
-	int i;
+	int i, suppressed_count = 0;
 	for (i = 0; i < num_errors; i++) {
+		if (!verbose) {
+			if (i > 0 && get_line_num(errors[i].errloc) == get_line_num(errors[i - 1].errloc)) {
+				suppressed_count++;
+				continue; /* only print one error for every line */
+			}
+		}
 		int errloc = errors[i].errloc;
 		char* error = errors[i].error;
 		
@@ -263,9 +270,12 @@ void list_errors()
 		if (errloc >= 0) /* if errloc is positive we will print out the line that caused the error */
 			print_location(errloc);
 	}
+
+	if (!verbose)
+		printf("\tnote: only one error is reported per line, %d were suppressed.\n", suppressed_count);
 }
 
-#define NUM_KEYWORDS 13
+#define NUM_KEYWORDS 14
 char keywords[NUM_KEYWORDS][15] = {
 	"var",
 	"while",
@@ -279,7 +289,8 @@ char keywords[NUM_KEYWORDS][15] = {
 	"define",
 	"input",
 	"write",
-	"decimal"
+	"decimal",
+	"macro"
 };
 
 enum {
@@ -295,7 +306,8 @@ enum {
 	KYWRD_DEFINE,
 	KYWRD_INPUT,
 	KYWRD_WRITE,
-	KYWRD_DECIM
+	KYWRD_DECIM,
+	KYWRD_MACRO
 };
 
 int get_keyword(char* str)
@@ -335,10 +347,11 @@ enum {
 	MOP_MUL   , MOP_DIV   ,
 	MOP_LBRACE, MOP_RBRACE,
 	MOP_SEMICOLON,
-	MOP_LBRACK, MOP_RBRACK
+	MOP_LBRACK, MOP_RBRACK,
+	MOP_COMMA
 };
 
-#define NUM_OPERATORS 27
+#define NUM_OPERATORS 28
 char operators[NUM_OPERATORS][3] = {
 	"==", "!=",
 	"&&", "||",
@@ -353,7 +366,7 @@ char operators[NUM_OPERATORS][3] = {
 	"*" , "/",
 	"(" , ")",
 	";" , "[",
-	"]"
+	"]" , ","
 };
 
 #define is_legal_in_identifer(c) ( \
@@ -983,35 +996,65 @@ int get_definition_index(char* name)
 
 typedef struct {
 	char* name;
-	int location, scope, num_elements;
-	enum {
-		VAR_CELL, VAR_ARRAY
-	} type;
-} Variable;
-Variable variables[4096];
-int num_variables = 0, scope = 0, used_array_cells = 0, used_variable_cells = 0;
+	char** args;
+	int num_args;
+	Token* body;
+} Macro;
+Macro macros[4096];
+int num_macros = 0;
 
-int get_variable_index(char* varname)
+void add_macro(char* name, char** args, int num_args, Token* body)
 {
-	for (int i = 0; i < num_variables; i++) {
-		if (!strcmp(variables[i].name, varname))
+	macros[num_macros].name = name;
+	macros[num_macros].args = args;
+	macros[num_macros].num_args = num_args;
+	macros[num_macros].body = body;
+	num_macros++;
+}
+
+int get_macro_index(char* name)
+{
+	for (int i = 0; i < num_macros; i++) {
+		if (!strcmp(macros[i].name, name))
 			return i;
 	}
 	return -1;
 }
 
-void add_variable(char* varname, int num_elements, int type, int location)
+typedef struct {
+	char* name;
+	int location, scope, num_elements, ctx;
+	enum {
+		VAR_CELL, VAR_ARRAY
+	} type;
+} Variable;
+Variable variables[4096];
+int num_variables = 0,
+	scope = 0, used_array_cells = 0,
+	used_variable_cells = 0,
+	context = 0;
+
+int get_variable_index(char* varname)
 {
-	if (get_variable_index(varname) != -1) {
-		push_error(location, "variable already defined.");
+	for (int i = 0; i < num_variables; i++) {
+		if (!strcmp(variables[i].name, varname) && variables[i].ctx == context)
+			return i;
+	}
+	return -1;
+}
+
+void add_variable(char* varname, int num_elements, int type, int location, int ctx, int origin)
+{
+	if (get_variable_index(varname) != -1 && context == ctx) {
+		push_error(origin, "variable already defined.");
 	}
 
 	if (get_definition_index(varname) != -1) {
-		push_error(location, "variable name conflicts with a constant definition.");
+		push_error(origin, "variable name conflicts with a constant definition.");
 	}
 
 	if (type == VAR_CELL) {
-		variables[num_variables].location = used_variable_cells;
+		variables[num_variables].location = location;
 		used_variable_cells++;
 	} else {
 		variables[num_variables].location = arrays + used_array_cells;
@@ -1021,6 +1064,7 @@ void add_variable(char* varname, int num_elements, int type, int location)
 	variables[num_variables].scope = scope;
 	variables[num_variables].type = type;
 	variables[num_variables].num_elements = num_elements;
+	variables[num_variables].ctx = ctx;
 	variables[num_variables++].name = varname;
 }
 
@@ -1033,6 +1077,16 @@ void kill_variables_of_scope(int killscope)
 	}
 }
 
+void kill_variables_of_context(int killcontext)
+{
+	for (int i = num_variables - 1; i >= 0; i--) {
+		if (variables[i].ctx == killcontext) {
+			num_variables--;
+		}
+	}
+}
+
+/* TODO: clean up these macros */
 #define NEXT_TOKEN(t)                                                               \
 	do {                                                                        \
 		if (!(t->next)) {                                                   \
@@ -1041,12 +1095,12 @@ void kill_variables_of_scope(int killscope)
 		} else t = t->next;                                                 \
 	} while (0);
 
-#define EXPECT_TOKEN(t, ttype, str)                                             \
-	do {                                                                    \
-		NEXT_TOKEN(t)                                                   \
-		if (strcmp(t->value,str) || t->type != ttype) {                 \
-			push_error(t->origin, "unexpected token \"%s\", expected \"%s\".\n", tok->value, str); \
-		}                                                               \
+#define EXPECT_TOKEN(t, ttype, str)                                                                          \
+	do {                                                                                                 \
+		NEXT_TOKEN(t)                                                                                \
+		if (strcmp(t->value,str) || t->type != ttype) {                                              \
+			push_error(t->origin, "unexpected token \"%s\", expected \"%s\".\n", t->value, str); \
+		}                                                                                            \
 	} while (0);
 
 #define PARSE_SYNTAX_ASSERT(err_cond, err_str)            \
@@ -1301,10 +1355,52 @@ void parse_operation(Token** token)
 
 enum {
 	STACK_WHILE,
-	STACK_IF
+	STACK_IF,
+	STACK_MACRO
 };
 
 int stack[4096], stack_ptr = 0;
+
+char** parse_list(Token** token, int* count)
+{
+	Token* tok = *token;
+
+	char** args = malloc(sizeof(char*) * 2);
+	while (tok->type == TOK_IDENTIFIER && tok->next != NULL && tok->next->type == TOK_OPERATOR) {
+		args = realloc(args, sizeof(char*) * (*count + 1));
+		args[*count] = tok->value;
+
+		(*count)++;
+		
+		if (!tok->next) {
+			push_error(tok->origin, "expected a valid token to follow.");
+			*token = tok;
+			return NULL;
+		}
+		tok = tok->next;
+
+		if (tok->data == MOP_RBRACE) {
+			break;
+		} else if (tok->data != MOP_COMMA) {
+			push_error(tok->origin, "expected a \",\".");
+			*token = tok;
+			break;
+		} else {
+			if (!tok->next) {
+				push_error(tok->origin, "expected a valid token to follow.");
+				*token = tok;
+				return NULL;
+			}
+			tok = tok->next;
+		}
+	}
+
+	*token = tok;
+	return args;
+}
+
+Token* tok_stack[4096];
+int tok_sp = 0;
 
 void parse_keyword(Token** token)
 {
@@ -1317,7 +1413,7 @@ void parse_keyword(Token** token)
 			SYNTAX_ASSERT(tok->type != TOK_IDENTIFIER, "expected an identifier.")
 			SYNTAX_ASSERT(get_keyword(tok->value) != -1, "variable names must not be keywords.")
 
-			add_variable(tok->value, -1, VAR_CELL, tok->origin);
+			add_variable(tok->value, -1, VAR_CELL, used_variable_cells, context, tok->origin);
 			break;
 		case KYWRD_WHILE: {
 			NEXT_TOKEN(tok)
@@ -1348,6 +1444,11 @@ void parse_keyword(Token** token)
 				case STACK_IF:
 					move_pointer_to(stack[--stack_ptr]);
 					emit("[-]]");
+					break;
+				case STACK_MACRO:
+					/* return from a macro body parse. */
+					tok = tok_stack[--tok_sp];
+					kill_variables_of_scope(context--);
 					break;
 			}
 
@@ -1438,7 +1539,7 @@ void parse_keyword(Token** token)
 
 			int a = expression(&tok);
 			EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
-			add_variable(name, a, VAR_ARRAY, tok->origin);
+			add_variable(name, a, VAR_ARRAY, used_variable_cells, context, tok->origin);
 		} break;
 		case KYWRD_BF: {
 			NEXT_TOKEN(tok)
@@ -1491,7 +1592,88 @@ void parse_keyword(Token** token)
 
 			emit_algo(ALGO_DECIM, variables[var_index].location, -1, -1);
 		} break;
+		case KYWRD_MACRO: {
+			NEXT_TOKEN(tok)
+			if (tok->type != TOK_IDENTIFIER)
+				push_error(tok->origin, "expected an identifier.");
+			char* name = tok->value;
+			EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
+			NEXT_TOKEN(tok)
+
+			int count = 0;
+			char** args = parse_list(&tok, &count);
+			SYNTAX_ASSERT(!args, "malformed argument list.")
+
+			if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
+				push_error(tok->origin, "expected \")\".");
+			}
+			NEXT_TOKEN(tok)
+			Token* body = tok;
+
+			add_macro(name, args, count, body);
+
+			int depth = 1;
+			while (tok) {
+				if (tok->type == TOK_KYWRD) {
+					if (tok->data == KYWRD_IF || tok->data == KYWRD_WHILE) {
+						depth++;
+					} else if (tok->data == KYWRD_END) {
+						depth--;
+					}
+				} else if (tok->type == TOK_IDENTIFIER) {
+					if (get_macro_index(tok->value) != -1) {
+						depth++;
+					}
+				}
+
+				if (!depth)
+					break;
+
+				tok = tok->next;
+			}
+
+			if (depth) {
+				push_error(body->origin, "no terminating end statement to macro definition.");
+				tok = body;
+				*token = tok;
+				return;
+			}
+
+			// printf("found a macro called %s with %d arguments.\n", name, count);
+		} break;
 	}
+
+	*token = tok;
+}
+
+void parse_macro(Token** token)
+{
+	Token* tok = *token;
+
+	int macro_idx = get_macro_index(tok->value);
+	EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
+	NEXT_TOKEN(tok)
+	
+	int num_args = 0;
+	char** args = parse_list(&tok, &num_args);
+
+	if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
+		push_error(tok->origin, "expected \")\".");
+	}
+
+	SYNTAX_ASSERT(!args, "malformed argument list.")
+	SYNTAX_ASSERT(num_args != macros[macro_idx].num_args, "incorrect number of arguments to macro.")
+	tok_stack[tok_sp++] = tok;
+	stack[stack_ptr++] = STACK_MACRO;
+
+	for (int i = 0; i < macros[macro_idx].num_args; i++) {
+		// (char* varname, int num_elements, int type, int location, int ctx)
+		add_variable(macros[macro_idx].args[i], -1, VAR_CELL, variables[get_variable_index(args[i])].location, context + 1, tok->origin);
+		// macros[macro_idx].body
+	}
+
+	scope++, context++;
+	tok = macros[macro_idx].body;
 
 	*token = tok;
 }
@@ -1505,8 +1687,10 @@ void parse(Token* tok)
 		} else if (tok->type == TOK_IDENTIFIER && get_variable_index(tok->value) != -1) {
 			parse_operation(&tok);
 			tok = tok->next;
+		} else if (tok->type == TOK_IDENTIFIER && get_macro_index(tok->value) != -1) {
+			parse_macro(&tok);
 		} else {
-			push_error(tok->origin, "unexpected token.", tok->value);
+			push_error(tok->origin, "unrecognized statement.", tok->value);
 			tok = tok->next;
 		}
 	}
@@ -1542,6 +1726,8 @@ int main(int argc, char **argv)
 			}
 
 			output_path = &argv[i][2];
+		} else if (!strcmp(argv[i], "-v")) {
+			verbose = 1;
 		} else {
 			input_path = argv[i];
 		}
