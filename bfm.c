@@ -1057,7 +1057,7 @@ void add_variable(char* varname, int num_elements, int type, int location, int c
 		variables[num_variables].location = location;
 		used_variable_cells++;
 	} else {
-		variables[num_variables].location = arrays + used_array_cells;
+		variables[num_variables].location = location;
 		used_array_cells += num_elements + 5;
 	}
 
@@ -1539,7 +1539,7 @@ void parse_keyword(Token** token)
 
 			int a = expression(&tok);
 			EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
-			add_variable(name, a, VAR_ARRAY, used_variable_cells, context, tok->origin);
+			add_variable(name, a, VAR_ARRAY, arrays + used_array_cells, context, tok->origin);
 		} break;
 		case KYWRD_BF: {
 			NEXT_TOKEN(tok)
@@ -1667,9 +1667,7 @@ void parse_macro(Token** token)
 	stack[stack_ptr++] = STACK_MACRO;
 
 	for (int i = 0; i < macros[macro_idx].num_args; i++) {
-		// (char* varname, int num_elements, int type, int location, int ctx)
-		add_variable(macros[macro_idx].args[i], -1, VAR_CELL, variables[get_variable_index(args[i])].location, context + 1, tok->origin);
-		// macros[macro_idx].body
+		add_variable(macros[macro_idx].args[i], -1, variables[get_variable_index(args[i])].type, variables[get_variable_index(args[i])].location, context + 1, tok->origin);
 	}
 
 	scope++, context++;

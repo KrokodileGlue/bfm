@@ -12,15 +12,11 @@ var generation     var i
 var flag           var null /* used to throw away values
                              * we don't want to keep */
 
-var left           var center           var right
-var left_index     var center_index     var right_index
-var not_left       var not_center       var not_right
-
 var algo
 print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\n"
 print "select an algorithm (0 - 3): "
 input algo        algo - '0';
-input null /* eat the the return character */
+input null /* eat the return character */
 
 print "enter a number of generations: "
 // decimal generation
@@ -67,6 +63,160 @@ while digit_ptr
 	digit      + 1;
 end
 
+/* will find the outcome for a given rule from an index
+ * in a given field and write it to result. */
+macro do_generation (field, i, algo, result)
+	var left           var center           var right
+	var left_index     var center_index     var right_index
+	var not_left       var not_center       var not_right
+
+	var is_i_width      is_i_width = i
+	var is_i_zero       is_i_zero  = i
+	is_i_zero  == 0;
+	is_i_width == WIDTH - 1;
+
+	left_index   = i
+	left_index   - 1;
+	center_index = i
+	right_index  = i
+	right_index  + 1;
+	
+	if is_i_width
+		right_index = 0;
+	end
+	if is_i_zero
+		left_index  = WIDTH - 1;
+	end
+	
+	left   = field[left_index]
+	center = field[center_index]
+	right  = field[right_index]
+	
+	/* left center and right now hold the cell
+	 * values, bounded by the width */
+	
+	not_left   = left      not not_left
+	not_center = center    not not_center
+	not_right  = right     not not_right
+	
+	// rule 90
+	var temp
+	temp = algo     temp == 0;
+	if temp
+		if left
+			if center
+				if not_right
+					result = 1;
+				end
+			end
+			if not_center
+				if not_right
+					result = 1;
+				end
+			end
+		end
+		
+		if not_left
+			if center
+				if right
+					result = 1;
+				end
+			end
+			if not_center
+				if right
+					result = 1;
+				end
+			end
+		end
+	end
+	
+	// rule 30
+	temp = algo     temp == 1;
+	if temp
+		if left
+			if not_center
+				if not_right
+					result = 1;
+				end
+			end
+		end
+		
+		if center
+			if not_left
+				result = 1;
+			end
+		end
+		
+		if right
+			if not_center
+				if not_left
+					result = 1;
+				end
+			end
+		end
+	end
+	
+	// rule 150
+	temp = algo     temp == 2;
+	if temp
+		if left
+			if center
+				if right
+					result = 1;
+				end
+			end
+			if not_center
+				if not_right
+					result = 1;
+				end
+			end
+		end
+		
+		if center
+			if not_left
+				if not_right
+					result = 1;
+				end
+			end
+		end
+		
+		if right
+			if not_center
+				if not_left
+					result = 1;
+				end
+			end
+		end
+	end
+
+	// rule 73
+	temp = algo     temp == 3;
+	if temp
+		if not_left
+			if not_center
+				if not_right
+					result = 1;
+				end
+			end
+
+			if center
+				if right
+					result = 1;
+				end
+			end
+		end
+
+		if left
+			if center
+				if not_right
+					result = 1;
+				end
+			end
+		end
+	end
+end
+
+/* main loop */
 while generation
 	generation - 1;
 	
@@ -107,150 +257,7 @@ while generation
 		var result          result = 0;
 		i - 1;
 
-		var is_i_width      is_i_width = i
-		var is_i_zero       is_i_zero  = i
-		is_i_zero  == 0;
-		is_i_width == WIDTH - 1;
-
-		left_index   = i
-		left_index   - 1;
-		center_index = i
-		right_index  = i
-		right_index  + 1;
-		
-		if is_i_width
-			right_index = 0;
-		end
-		if is_i_zero
-			left_index  = WIDTH - 1;
-		end
-		
-		left   = field[left_index]
-		center = field[center_index]
-		right  = field[right_index]
-		
-		/* left center and right now hold the cell
-		 * values, bounded by the width */
-		
-		not_left   = left      not not_left
-		not_center = center    not not_center
-		not_right  = right     not not_right
-		
-		// rule 90
-		var temp
-		temp = algo     temp == 0;
-		if temp
-			if left
-				if center
-					if not_right
-						result = 1;
-					end
-				end
-				if not_center
-					if not_right
-						result = 1;
-					end
-				end
-			end
-			
-			if not_left
-				if center
-					if right
-						result = 1;
-					end
-				end
-				if not_center
-					if right
-						result = 1;
-					end
-				end
-			end
-		end
-		
-		// rule 30
-		temp = algo     temp == 1;
-		if temp
-			if left
-				if not_center
-					if not_right
-						result = 1;
-					end
-				end
-			end
-			
-			if center
-				if not_left
-					result = 1;
-				end
-			end
-			
-			if right
-				if not_center
-					if not_left
-						result = 1;
-					end
-				end
-			end
-		end
-		
-		// rule 150
-		temp = algo     temp == 2;
-		if temp
-			if left
-				if center
-					if right
-						result = 1;
-					end
-				end
-				if not_center
-					if not_right
-						result = 1;
-					end
-				end
-			end
-			
-			if center
-				if not_left
-					if not_right
-						result = 1;
-					end
-				end
-			end
-			
-			if right
-				if not_center
-					if not_left
-						result = 1;
-					end
-				end
-			end
-		end
-
-		// rule 73
-		temp = algo     temp == 3;
-		if temp
-			if not_left
-				if not_center
-					if not_right
-						result = 1;
-					end
-				end
-
-				if center
-					if right
-						result = 1;
-					end
-				end
-			end
-
-			if left
-				if center
-					if not_right
-						result = 1;
-					end
-				end
-			end
-		end
+		do_generation (field, i, algo, result)
 
 		var index    index = i
 		index + WIDTH;
