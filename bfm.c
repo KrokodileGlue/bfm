@@ -272,7 +272,7 @@ void list_errors()
 	}
 
 	if (!verbose)
-		printf("\tnote: only one error is reported per line, %d were suppressed.\n", suppressed_count);
+		printf("\tnote: only one error is reported per line, %d warning(s) were suppressed.\n", suppressed_count);
 }
 
 #define NUM_KEYWORDS 14
@@ -997,18 +997,19 @@ int get_definition_index(char* name)
 typedef struct {
 	char* name;
 	char** args;
-	int num_args;
+	int num_args, origin;
 	Token* body;
 } Macro;
 Macro macros[4096];
 int num_macros = 0;
 
-void add_macro(char* name, char** args, int num_args, Token* body)
+void add_macro(char* name, char** args, int num_args, Token* body, int origin)
 {
 	macros[num_macros].name = name;
 	macros[num_macros].args = args;
 	macros[num_macros].num_args = num_args;
 	macros[num_macros].body = body;
+	macros[num_macros].origin = origin;
 	num_macros++;
 }
 
@@ -1446,8 +1447,8 @@ void parse_keyword(Token** token)
 					emit("[-]]");
 					break;
 				case STACK_MACRO:
-					/* return from a macro body parse. */
 					tok = tok_stack[--tok_sp];
+					stack_ptr--; /* we don't actually care about what macro we're parsing here */
 					kill_variables_of_scope(context--);
 					break;
 			}
@@ -1594,9 +1595,12 @@ void parse_keyword(Token** token)
 		} break;
 		case KYWRD_MACRO: {
 			NEXT_TOKEN(tok)
+			
 			if (tok->type != TOK_IDENTIFIER)
 				push_error(tok->origin, "expected an identifier.");
+
 			char* name = tok->value;
+			int origin = tok->origin;
 			EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
 			NEXT_TOKEN(tok)
 
@@ -1610,7 +1614,7 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 			Token* body = tok;
 
-			add_macro(name, args, count, body);
+			add_macro(name, args, count, body, origin);
 
 			int depth = 1;
 			while (tok) {
@@ -1620,10 +1624,8 @@ void parse_keyword(Token** token)
 					} else if (tok->data == KYWRD_END) {
 						depth--;
 					}
-				} else if (tok->type == TOK_IDENTIFIER) {
-					if (get_macro_index(tok->value) != -1) {
-						depth++;
-					}
+				} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_MACRO) {
+					depth++;
 				}
 
 				if (!depth)
@@ -1633,7 +1635,7 @@ void parse_keyword(Token** token)
 			}
 
 			if (depth) {
-				push_error(body->origin, "no terminating end statement to macro definition.");
+				push_error(origin, "no terminating end statement to macro definition.");
 				tok = body;
 				*token = tok;
 				return;
@@ -1646,11 +1648,31 @@ void parse_keyword(Token** token)
 	*token = tok;
 }
 
+/* TODO: change the error system so the we can report both the location of a problematic
+ * macro and the specific expansion that caused the issue. */
 void parse_macro(Token** token)
 {
 	Token* tok = *token;
 
 	int macro_idx = get_macro_index(tok->value);
+	for (int i = stack_ptr - 1; i > 0; i--) {
+		if (stack[i] == STACK_MACRO && stack[i - 1] == macro_idx) {
+			push_error(macros[macro_idx].origin, "recursive macro definition.");
+			int num_args = 0;
+			EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
+			NEXT_TOKEN(tok)
+			char** args = parse_list(&tok, &num_args);
+
+			if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
+				push_error(tok->origin, "expected \")\".");
+			}
+
+			free(args);
+			*token = tok->next;
+
+			return;
+		}
+	}
 	EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
 	NEXT_TOKEN(tok)
 	
@@ -1664,10 +1686,23 @@ void parse_macro(Token** token)
 	SYNTAX_ASSERT(!args, "malformed argument list.")
 	SYNTAX_ASSERT(num_args != macros[macro_idx].num_args, "incorrect number of arguments to macro.")
 	tok_stack[tok_sp++] = tok;
+	stack[stack_ptr++] = macro_idx;
 	stack[stack_ptr++] = STACK_MACRO;
 
-	for (int i = 0; i < macros[macro_idx].num_args; i++) {
-		add_variable(macros[macro_idx].args[i], -1, variables[get_variable_index(args[i])].type, variables[get_variable_index(args[i])].location, context + 1, tok->origin);
+	int failed = 0;
+	for (int i = 0; i < num_args; i++) {
+		int arg_idx = get_variable_index(args[i]);
+		if (arg_idx == -1) {
+			push_error(tok->origin, "unrecognized variable.");
+			failed = 1;
+			continue;
+		}
+		add_variable(macros[macro_idx].args[i], -1, variables[arg_idx].type, variables[get_variable_index(args[i])].location, context + 1, tok->origin);
+	}
+
+	if (failed) {
+		*token = tok;
+		return;
 	}
 
 	scope++, context++;
