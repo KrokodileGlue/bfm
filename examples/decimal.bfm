@@ -1,0 +1,50 @@
+macro read_str (str, len)
+	var f             f = 1;
+	var i             i = 0;
+
+	while f
+		var c     input c
+		str[i] = c
+		i + 1;
+
+		/* while (c != '\n') */
+		f = c     f == '\n';     not f
+	end
+
+	len = i           len - 1; /* discard the return */
+end
+
+macro dec_in (num)
+	array digits 4;
+	var digit_ptr     num = 0;
+
+	read_str (digits, digit_ptr)
+
+	var digit         digit = 0;
+	while digit_ptr
+		digit_ptr - 1;
+
+		var c
+		c = digits[digit_ptr]
+		c - '0';
+
+		if digit
+			var temp    temp = 1;
+			var i
+
+			i = digit
+			while i
+				i    - 1;
+				temp * 10;
+			end
+			c * temp
+		end
+		num   + c
+		digit + 1;
+	end
+end
+
+print "Enter a number: "
+var num          dec_in (num)
+print "You entered: "    print num
+print "\n"

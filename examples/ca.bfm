@@ -3,6 +3,9 @@ print "                  by retrosegfault.tumblr.com\n"
 
 define WIDTH 66;
 
+define RULE_90  0;     define RULE_30  1;
+define RULE_150 2;     define RULE_73  3;
+
 array digits 3;
 array field (WIDTH * 2);
 
@@ -14,205 +17,184 @@ var flag           var null /* used to throw away values
 
 var algo
 print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\n"
-print "select an algorithm (0 - 3): "
+print "select an algorithm: "
 input algo        algo - '0';
 input null /* eat the return character */
 
-print "enter a number of generations: "
-// decimal generation
+print "generations: "
+decimal generation
 
-/* the following code takes in a decimal number as an input
- * and turns it into a cell value. it is made obsolete by
- * the introduction of the "decimal" keyword, which does the
- * same thing, but which generates much more compact bf.
- * 
- * this code is kept here as an example of a practical
- * programming task in bfm. */
+macro get_neighbors (field, i, left, center, right)
+	var left_idx       var center_idx       var right_idx
 
-var digit_ptr        flag = 1;
-while flag
-	var c        input c
-	digits[digit_ptr] = c
-	digit_ptr         + 1;
-
-	flag = c     flag == 10; /* do this loop until we
-	                          * hit a return */
-	not flag
-end
-digit_ptr - 1; /* discard the return */
-
-var digit
-while digit_ptr
-	digit_ptr - 1;
-
-	var c
-	c = digits[digit_ptr]
-	c - '0';
-
-	if digit
-		var temp    temp = 1;
-
-		i = digit
-		while i
-			i - 1;
-			temp * 10;
-		end
-		c * temp
-	end
-	generation + c
-	digit      + 1;
-end
-
-/* will find the outcome for a given rule from an index
- * in a given field and write it to result. */
-macro do_generation (field, i, algo, result)
-	var left           var center           var right
-	var left_index     var center_index     var right_index
-	var not_left       var not_center       var not_right
+	left_idx   = i
+	left_idx   - 1;
+	center_idx = i
+	right_idx  = i
+	right_idx  + 1;
 
 	var is_i_width      is_i_width = i
 	var is_i_zero       is_i_zero  = i
 	is_i_zero  == 0;
 	is_i_width == WIDTH - 1;
-
-	left_index   = i
-	left_index   - 1;
-	center_index = i
-	right_index  = i
-	right_index  + 1;
 	
 	if is_i_width
-		right_index = 0;
+		right_idx = 0;
 	end
 	if is_i_zero
-		left_index  = WIDTH - 1;
+		left_idx  = WIDTH - 1;
 	end
-	
-	left   = field[left_index]
-	center = field[center_index]
-	right  = field[right_index]
-	
-	/* left center and right now hold the cell
-	 * values, bounded by the width */
-	
-	not_left   = left      not not_left
-	not_center = center    not not_center
-	not_right  = right     not not_right
-	
-	// rule 90
-	var temp
-	temp = algo     temp == 0;
-	if temp
-		if left
-			if center
-				if not_right
-					result = 1;
-				end
-			end
-			if not_center
-				if not_right
-					result = 1;
-				end
-			end
-		end
-		
-		if not_left
-			if center
-				if right
-					result = 1;
-				end
-			end
-			if not_center
-				if right
-					result = 1;
-				end
-			end
-		end
-	end
-	
-	// rule 30
-	temp = algo     temp == 1;
-	if temp
-		if left
-			if not_center
-				if not_right
-					result = 1;
-				end
-			end
-		end
-		
+
+	left   = field[left_idx]
+	center = field[center_idx]
+	right  = field[right_idx]
+end
+
+macro rule90 (left, center, right, not_left, not_center, not_right, result)
+	if left
 		if center
+			if not_right
+				result = 1;
+			end
+		end
+		if not_center
+			if not_right
+				result = 1;
+			end
+		end
+	end
+	if not_left
+		if center
+			if right
+				result = 1;
+			end
+		end
+		if not_center
+			if right
+				result = 1;
+			end
+		end
+	end
+end
+
+macro rule30 (left, center, right, not_left, not_center, not_right, result)
+	if left
+		if not_center
+			if not_right
+				result = 1;
+			end
+		end
+	end
+	
+	if center
+		if not_left
+			result = 1;
+		end
+	end
+	
+	if right
+		if not_center
 			if not_left
 				result = 1;
 			end
 		end
-		
-		if right
-			if not_center
-				if not_left
-					result = 1;
-				end
+	end
+end
+
+macro rule150 (left, center, right, not_left, not_center, not_right, result)
+	if left
+		if center
+			if right
+				result = 1;
+			end
+		end
+		if not_center
+			if not_right
+				result = 1;
 			end
 		end
 	end
 	
-	// rule 150
-	temp = algo     temp == 2;
-	if temp
-		if left
-			if center
-				if right
-					result = 1;
-				end
-			end
-			if not_center
-				if not_right
-					result = 1;
-				end
+	if center
+		if not_left
+			if not_right
+				result = 1;
 			end
 		end
-		
-		if center
+	end
+	
+	if right
+		if not_center
 			if not_left
-				if not_right
-					result = 1;
-				end
+				result = 1;
 			end
 		end
-		
-		if right
-			if not_center
-				if not_left
-					result = 1;
-				end
+	end
+end
+
+macro rule73 (left, center, right, not_left, not_center, not_right, result)
+	if not_left
+		if not_center
+			if not_right
+				result = 1;
+			end
+		end
+
+		if center
+			if right
+				result = 1;
 			end
 		end
 	end
 
-	// rule 73
-	temp = algo     temp == 3;
+	if left
+		if center
+			if not_right
+				result = 1;
+			end
+		end
+	end
+end
+
+/* will find the outcome for a given RULE_ from an idx
+ * in a given field and write it to result. */
+macro update_cell (field, i, algo, result)
+	var left           var center           var right
+	var not_left       var not_center       var not_right
+
+	get_neighbors (field, i, left, center, right)
+
+	not_left   = left      not not_left
+	not_center = center    not not_center
+	not_right  = right     not not_right
+
+	var temp
+	temp = algo     temp == RULE_90;
 	if temp
-		if not_left
-			if not_center
-				if not_right
-					result = 1;
-				end
-			end
+		rule90 (left,     center,     right,
+			not_left, not_center, not_right,
+			result)
+	end
 
-			if center
-				if right
-					result = 1;
-				end
-			end
-		end
+	temp = algo     temp == RULE_30;
+	if temp
+		rule30 (left,     center,     right,
+			not_left, not_center, not_right,
+			result)
+	end
 
-		if left
-			if center
-				if not_right
-					result = 1;
-				end
-			end
-		end
+	temp = algo     temp == RULE_150;
+	if temp
+		rule150 (left,     center,     right,
+			 not_left, not_center, not_right,
+			 result)
+	end
+
+	temp = algo     temp == RULE_73;
+	if temp
+		rule73 (left,     center,     right,
+			not_left, not_center, not_right,
+			result)
 	end
 end
 
@@ -225,9 +207,9 @@ while generation
 	while i
 		i - 1;
 		
-		var index    index = i
-		index + WIDTH;
-		field[i] = field[index]
+		var idx    idx = i
+		idx + WIDTH;
+		field[i] = field[idx]
 	end
 
 	/* print the field */
@@ -257,11 +239,11 @@ while generation
 		var result          result = 0;
 		i - 1;
 
-		do_generation (field, i, algo, result)
+		update_cell (field, i, algo, result)
 
-		var index    index = i
-		index + WIDTH;
+		var idx    idx = i
+		idx + WIDTH;
 		
-		field[index] = result
+		field[idx] = result
 	end
 end
