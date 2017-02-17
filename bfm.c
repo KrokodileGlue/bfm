@@ -1056,7 +1056,6 @@ void add_variable(char* varname, int num_elements, int type, int location, int c
 
 	if (type == VAR_CELL) {
 		variables[num_variables].location = location;
-		used_variable_cells++;
 	} else {
 		variables[num_variables].location = location;
 		used_array_cells += num_elements + 5;
@@ -1074,6 +1073,7 @@ void kill_variables_of_scope(int killscope)
 	for (int i = num_variables - 1; i >= 0; i--) {
 		if (variables[i].scope == killscope) {
 			num_variables--;
+			used_variable_cells--;
 		}
 	}
 }
@@ -1348,7 +1348,6 @@ void parse_operation(Token** token)
 	}
 
 	emit_algo(algo, left, right, -1);
-
 	FERRY_ARRAY_BACK
 
 	*token = tok;
@@ -1414,7 +1413,7 @@ void parse_keyword(Token** token)
 			SYNTAX_ASSERT(tok->type != TOK_IDENTIFIER, "expected an identifier.")
 			SYNTAX_ASSERT(get_keyword(tok->value) != -1, "variable names must not be keywords.")
 
-			add_variable(tok->value, -1, VAR_CELL, used_variable_cells, context, tok->origin);
+			add_variable(tok->value, -1, VAR_CELL, used_variable_cells++, context, tok->origin);
 			break;
 		case KYWRD_WHILE: {
 			NEXT_TOKEN(tok)
@@ -1448,8 +1447,8 @@ void parse_keyword(Token** token)
 					break;
 				case STACK_MACRO:
 					tok = tok_stack[--tok_sp];
-					stack_ptr--; /* we don't actually care about what macro we're parsing here */
-					kill_variables_of_scope(context--);
+					stack_ptr--;
+					kill_variables_of_context(context--);
 					break;
 			}
 
@@ -1649,13 +1648,14 @@ void parse_keyword(Token** token)
 }
 
 /* TODO: change the error system so the we can report both the location of a problematic
- * macro and the specific expansion that caused the issue. */
+ * macro and the expansion that caused the issue. */
 void parse_macro(Token** token)
 {
 	Token* tok = *token;
 
 	int macro_idx = get_macro_index(tok->value);
-	for (int i = stack_ptr - 1; i > 0; i--) {
+
+	for (int i = stack_ptr - 1; i >= 1; i -= 2) {
 		if (stack[i] == STACK_MACRO && stack[i - 1] == macro_idx) {
 			push_error(macros[macro_idx].origin, "recursive macro definition.");
 			int num_args = 0;
@@ -1673,6 +1673,7 @@ void parse_macro(Token** token)
 			return;
 		}
 	}
+
 	EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
 	NEXT_TOKEN(tok)
 	
@@ -1688,6 +1689,7 @@ void parse_macro(Token** token)
 	tok_stack[tok_sp++] = tok;
 	stack[stack_ptr++] = macro_idx;
 	stack[stack_ptr++] = STACK_MACRO;
+	scope++;
 
 	int failed = 0;
 	for (int i = 0; i < num_args; i++) {
@@ -1705,7 +1707,7 @@ void parse_macro(Token** token)
 		return;
 	}
 
-	scope++, context++;
+	context++;
 	tok = macros[macro_idx].body;
 
 	*token = tok;
@@ -1723,7 +1725,7 @@ void parse(Token* tok)
 		} else if (tok->type == TOK_IDENTIFIER && get_macro_index(tok->value) != -1) {
 			parse_macro(&tok);
 		} else {
-			push_error(tok->origin, "unrecognized statement.", tok->value);
+			push_error(tok->origin, "invalid statement.", tok->value);
 			tok = tok->next;
 		}
 	}
@@ -1796,7 +1798,7 @@ int main(int argc, char **argv)
 	free(raw);
 	delete_list(tok);
 
-	sanitize(output);
+	//sanitize(output);
 
 	FILE* output_file = fopen(output_path, "w");
 	save_file(output_file, output);
