@@ -997,19 +997,20 @@ int get_definition_index(char* name)
 typedef struct {
 	char* name;
 	char** args;
-	int num_args, origin;
+	int num_args, origin, *origins /* the locations of the arguments */;
 	Token* body;
 } Macro;
 Macro macros[4096];
 int num_macros = 0;
 
-void add_macro(char* name, char** args, int num_args, Token* body, int origin)
+void add_macro(char* name, char** args, int num_args, Token* body, int origin, int* origins)
 {
 	macros[num_macros].name = name;
 	macros[num_macros].args = args;
 	macros[num_macros].num_args = num_args;
 	macros[num_macros].body = body;
 	macros[num_macros].origin = origin;
+	macros[num_macros].origins = origins;
 	num_macros++;
 }
 
@@ -1024,7 +1025,7 @@ int get_macro_index(char* name)
 
 typedef struct {
 	char* name;
-	int location, scope, num_elements, ctx;
+	int location, scope, num_elements, ctx, used, origin;
 	enum {
 		VAR_CELL, VAR_ARRAY
 	} type;
@@ -1038,8 +1039,10 @@ int num_variables = 0,
 int get_variable_index(char* varname)
 {
 	for (int i = 0; i < num_variables; i++) {
-		if (!strcmp(variables[i].name, varname) && variables[i].ctx == context)
+		if (!strcmp(variables[i].name, varname) && variables[i].ctx == context) {
+			variables[i].used = 1;
 			return i;
+		}
 	}
 	return -1;
 }
@@ -1065,24 +1068,38 @@ void add_variable(char* varname, int num_elements, int type, int location, int c
 	variables[num_variables].type = type;
 	variables[num_variables].num_elements = num_elements;
 	variables[num_variables].ctx = ctx;
+	variables[num_variables].used = 0;
+	variables[num_variables].origin = origin;
 	variables[num_variables++].name = varname;
-}
-
-void kill_variables_of_scope(int killscope)
-{
-	for (int i = num_variables - 1; i >= 0; i--) {
-		if (variables[i].scope == killscope) {
-			num_variables--;
-			used_variable_cells--;
-		}
-	}
 }
 
 void kill_variables_of_context(int killcontext)
 {
+	for (int i = 0; i < num_variables; i++) {
+		if (variables[i].used == 0 && variables[i].ctx == killcontext) {
+			push_error(variables[i].origin, "unused variable.");
+		}
+	}
 	for (int i = num_variables - 1; i >= 0; i--) {
 		if (variables[i].ctx == killcontext) {
+			// printf("killing variable %s\n", variables[i].name);
 			num_variables--;
+		}
+	}
+}
+
+void kill_variables_of_scope(int killscope)
+{
+	for (int i = 0; i < num_variables; i++) {
+		if (variables[i].used == 0 && variables[i].scope == killscope) {
+			push_error(variables[i].origin, "unused variable.");
+		}
+	}
+	for (int i = num_variables - 1; i >= 0; i--) {
+		if (variables[i].scope == killscope) {
+			// printf("killing variable %s\n", variables[i].name);
+			num_variables--;
+			used_variable_cells--;
 		}
 	}
 }
@@ -1361,14 +1378,19 @@ enum {
 
 int stack[4096], stack_ptr = 0;
 
-char** parse_list(Token** token, int* count)
+char** parse_list(Token** token, int* count, int* origins)
 {
 	Token* tok = *token;
 
+	*count = 0;
 	char** args = malloc(sizeof(char*) * 2);
 	while (tok->type == TOK_IDENTIFIER && tok->next != NULL && tok->next->type == TOK_OPERATOR) {
 		args = realloc(args, sizeof(char*) * (*count + 1));
 		args[*count] = tok->value;
+		if (origins) {
+			origins = realloc(origins, sizeof(int) * (*count + 1));
+			origins[*count] = tok->origin;
+		}
 
 		(*count)++;
 		
@@ -1604,7 +1626,8 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 
 			int count = 0;
-			char** args = parse_list(&tok, &count);
+			int* origins = malloc(2);
+			char** args = parse_list(&tok, &count, origins);
 			SYNTAX_ASSERT(!args, "malformed argument list.")
 
 			if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
@@ -1613,7 +1636,7 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 			Token* body = tok;
 
-			add_macro(name, args, count, body, origin);
+			add_macro(name, args, count, body, origin, origins);
 
 			int depth = 1;
 			while (tok) {
@@ -1661,7 +1684,7 @@ void parse_macro(Token** token)
 			int num_args = 0;
 			EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
 			NEXT_TOKEN(tok)
-			char** args = parse_list(&tok, &num_args);
+			char** args = parse_list(&tok, &num_args, NULL);
 
 			if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
 				push_error(tok->origin, "expected \")\".");
@@ -1678,7 +1701,7 @@ void parse_macro(Token** token)
 	NEXT_TOKEN(tok)
 	
 	int num_args = 0;
-	char** args = parse_list(&tok, &num_args);
+	char** args = parse_list(&tok, &num_args, NULL);
 
 	if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
 		push_error(tok->origin, "expected \")\".");
@@ -1699,7 +1722,7 @@ void parse_macro(Token** token)
 			failed = 1;
 			continue;
 		}
-		add_variable(macros[macro_idx].args[i], -1, variables[arg_idx].type, variables[get_variable_index(args[i])].location, context + 1, tok->origin);
+		add_variable(macros[macro_idx].args[i], -1, variables[arg_idx].type, variables[get_variable_index(args[i])].location, context + 1, macros[macro_idx].origins[i]);
 	}
 
 	if (failed) {
@@ -1729,6 +1752,7 @@ void parse(Token* tok)
 			tok = tok->next;
 		}
 	}
+	kill_variables_of_scope(scope--);
 
 	check_errors();
 }
@@ -1798,7 +1822,7 @@ int main(int argc, char **argv)
 	free(raw);
 	delete_list(tok);
 
-	//sanitize(output);
+	sanitize(output);
 
 	FILE* output_file = fopen(output_path, "w");
 	save_file(output_file, output);
