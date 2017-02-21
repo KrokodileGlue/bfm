@@ -974,15 +974,15 @@ void emit_write_string(Token* tok)
 
 typedef struct {
 	char* name;
-	Token tok;
+	int data;
 } Definition;
 Definition definitions[4096];
 int num_definitions = 0;
 
-void add_definition(char* name, Token tok)
+void add_definition(char* name, int data)
 {
 	definitions[num_definitions].name = name;
-	definitions[num_definitions++].tok = tok;
+	definitions[num_definitions++].data = data;
 }
 
 int get_definition_index(char* name)
@@ -1144,13 +1144,15 @@ double primary(Token** token)
 {
 	Token* tok = *token;
 
-	Token* parse_tok = tok;
-	int definition_index = get_definition_index(tok->value);
-	if (definition_index != -1) {
-		parse_tok = &(definitions[definition_index].tok);
+	int data = tok->data, type = tok->type;
+
+	int def_idx = get_definition_index(tok->value);
+	if (type == TOK_IDENTIFIER && def_idx != -1) {
+		data = definitions[def_idx].data;
+		type = TOK_NUMBER;
 	}
 
-	if (parse_tok->type == TOK_OPERATOR && tok->data == MOP_LBRACE) {
+	if (type == TOK_OPERATOR && data == MOP_LBRACE) {
 		PARSE_NEXT_TOKEN(tok)
 		double d = expression(&tok);
 		PARSE_NEXT_TOKEN(tok)
@@ -1161,8 +1163,8 @@ double primary(Token** token)
 
 		*token = tok;
 		return d;
-	} else if (parse_tok->type == TOK_NUMBER) {
-		return (double)parse_tok->data;
+	} else if (type == TOK_NUMBER) {
+		return (double)data;
 	}
 
 	PARSE_SYNTAX_ASSERT(1, "unexpected token, expected a number or operator.");
@@ -1576,17 +1578,12 @@ void parse_keyword(Token** token)
 
 			char* name = tok->value;
 			NEXT_TOKEN(tok)
+			SYNTAX_ASSERT(tok->type != TOK_NUMBER, "expected a number.")
 
-			if (tok->type == TOK_STRING) {
-				add_definition(name, *tok);
-			} else {
-				double data = expression(&tok);
-				EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
-				Token num;
-				num.type = TOK_NUMBER;
-				num.data = (int)data;
-				add_definition(name, num);
-			}
+			double data = expression(&tok);
+			EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
+
+			add_definition(name, (int)data);
 		} break;
 		case KYWRD_INPUT: {
 			NEXT_TOKEN(tok)
