@@ -16,7 +16,7 @@ int count_leading_whitespace(int);
 char* get_line_from_index(int);
 void errprint(char*);
 void print_location(int);
-void push_error(int, const char*, ...);
+void push_error(int errloc, int is_suppressable, const char* message, ...);
 void list_errors();
 
 void* bfm_malloc(size_t bytes)
@@ -83,9 +83,9 @@ void save_file(FILE* file, char* str)
 	}
 }
 
-#define MAX_ERRORS 128
+#define MAX_ERRORS 4096
 typedef struct {
-	int errloc;
+	int errloc, is_suppressable;
 	char* error;
 } Error;
 Error errors[MAX_ERRORS];
@@ -200,7 +200,9 @@ void print_location(int index)
 }
 
 #define MAX_ERROR_LENGTH 512
-__attribute__ ((noreturn)) void fatal_error(int errloc /* the location of the error */, const char* message, ...)
+
+__attribute__ ((noreturn))
+void fatal_error(int errloc /* the location of the error */, const char* message, ...)
 {
 	char error_buf[MAX_ERROR_LENGTH + 1];
 	
@@ -226,9 +228,10 @@ __attribute__ ((noreturn)) void fatal_error(int errloc /* the location of the er
 	exit(EXIT_FAILURE);
 }
 
-void push_error(int errloc /* the location of the error */, const char* message, ...)
+void push_error(int errloc /* the location of the error */, int is_suppressable, const char* message, ...)
 {
 	errors[num_errors].errloc = errloc;
+	errors[num_errors].is_suppressable = is_suppressable;
 	errors[num_errors].error = bfm_malloc(MAX_ERROR_LENGTH + 1);
 	errors[num_errors].error[0] = 0;
 	
@@ -249,7 +252,7 @@ void list_errors()
 	int i, suppressed_count = 0;
 	for (i = 0; i < num_errors; i++) {
 		if (!verbose) {
-			if (i > 0 && get_line_num(errors[i].errloc) == get_line_num(errors[i - 1].errloc)) {
+			if (i > 0 && get_line_num(errors[i].errloc) == get_line_num(errors[i - 1].errloc) && errors[i].is_suppressable) {
 				suppressed_count++;
 				continue; /* only print one error for every line */
 			}
@@ -272,7 +275,7 @@ void list_errors()
 	}
 
 	if (!verbose)
-		printf("\tnote: only one error is reported per line, %d warning(s) were suppressed.\n", suppressed_count);
+		printf("\tnote: %d warning(s) suppressed.\n", suppressed_count);
 }
 
 #define NUM_KEYWORDS 14
@@ -428,14 +431,14 @@ int parse_escape_characters(char* str, int location)
 				case 'r': *c = '\r'; break;
 				case 'x':
 					if (strlen(&str[i]) < 3)
-						push_error(location + i, "malformed escape sequence.");
+						push_error(location + i, 1, "malformed escape sequence.");
 
 					char num[3];
 					strncpy(num, &str[i + 1], 2);
 					num[2] = '\0';
 
 					if (!is_hex_num(num))
-						push_error(location + i, "malformed escape sequence.");
+						push_error(location + i, 1, "malformed escape sequence.");
 
 					*c = (char)strtol(num, NULL, 16);
 					i += 2;
@@ -502,7 +505,7 @@ Token* tokenize(char* in)
 		tok_origin = start - in;
 		
 		if (!strncmp(start, "*/", 2)) {
-			push_error(tok_origin, "comment terminator has no intializer.");
+			push_error(tok_origin, 0, "comment terminator has no intializer.");
 			
 			start += 2;
 			end = start;
@@ -530,7 +533,7 @@ Token* tokenize(char* in)
 			}
 			
 			if (comment_depth || !*end) {
-				push_error(tok_origin, "unterminated comment.");
+				push_error(tok_origin, 0, "unterminated comment.");
 				
 				start += 2;
 				end = start;
@@ -575,7 +578,7 @@ Token* tokenize(char* in)
 			tok_type = TOK_STRING;
 			while (*end != '"' && *end) {
 				if (*end == '\n') {
-					push_error(tok_origin, "unmatched \" character.");
+					push_error(tok_origin, 0, "unmatched \" character.");
 					
 					start += 1;
 					end = start;
@@ -591,7 +594,7 @@ Token* tokenize(char* in)
 			}
 			
 			if (!*end) {
-				push_error(tok_origin, "unmatched \" character.");
+				push_error(tok_origin, 0, "unmatched \" character.");
 				
 				start += 1;
 				end = start;
@@ -606,7 +609,7 @@ Token* tokenize(char* in)
 			tok_type = TOK_CHAR;
 			while (*end != '\'' && *end) {
 				if (*end == '\n') {
-					push_error(tok_origin, "unmatched ' character.");
+					push_error(tok_origin, 0, "unmatched ' character.");
 					
 					start += 1;
 					end = start;
@@ -622,7 +625,7 @@ Token* tokenize(char* in)
 			}
 			
 			if (!*end) {
-				push_error(tok_origin, "unmatched ' character.");
+				push_error(tok_origin, 0, "unmatched ' character.");
 				
 				start += 1;
 				end = start;
@@ -672,7 +675,7 @@ Token* tokenize(char* in)
 
 		if (current->type == TOK_CHAR) {
 			if (strlen(current->value) > 1) {
-				push_error(tok_origin, "multi-character chars are not permitted.");
+				push_error(tok_origin, 0, "multi-character chars are not permitted.");
 			}
 
 			current->type = TOK_NUMBER;
@@ -963,13 +966,13 @@ void emit_write_string(Token* tok)
 	}
 }
 
-#define SYNTAX_ASSERT(err_cond, err_str)                  \
-	do {                                              \
-		if (err_cond) {                           \
-			push_error(tok->origin, err_str); \
-			*token = tok;                     \
-			return;                           \
-		}                                         \
+#define SYNTAX_ASSERT(err_cond, err_str)                     \
+	do {                                                 \
+		if (err_cond) {                              \
+			push_error(tok->origin, 1, err_str); \
+			*token = tok;                        \
+			return;                              \
+		}                                            \
 	} while(0);
 
 typedef struct {
@@ -1050,11 +1053,11 @@ int get_variable_index(char* varname)
 void add_variable(char* varname, int num_elements, int type, int location, int ctx, int origin)
 {
 	if (get_variable_index(varname) != -1 && context == ctx) {
-		push_error(origin, "variable already defined.");
+		push_error(origin, 0, "variable already defined.");
 	}
 
 	if (get_definition_index(varname) != -1) {
-		push_error(origin, "variable name conflicts with a constant definition.");
+		push_error(origin, 0, "variable name conflicts with a constant definition.");
 	}
 
 	if (type == VAR_CELL) {
@@ -1077,7 +1080,7 @@ void kill_variables_of_context(int killcontext)
 {
 	for (int i = 0; i < num_variables; i++) {
 		if (variables[i].used == 0 && variables[i].ctx == killcontext) {
-			push_error(variables[i].origin, "unused variable.");
+			push_error(variables[i].origin, 0, "unused variable %s.", variables[i].name);
 		}
 	}
 	for (int i = num_variables - 1; i >= 0; i--) {
@@ -1092,7 +1095,7 @@ void kill_variables_of_scope(int killscope)
 {
 	for (int i = 0; i < num_variables; i++) {
 		if (variables[i].used == 0 && variables[i].scope == killscope) {
-			push_error(variables[i].origin, "unused variable.");
+			push_error(variables[i].origin, 0, "unused variable %s.", variables[i].name);
 		}
 	}
 	for (int i = num_variables - 1; i >= 0; i--) {
@@ -1108,7 +1111,7 @@ void kill_variables_of_scope(int killscope)
 #define NEXT_TOKEN(t)                                                               \
 	do {                                                                        \
 		if (!(t->next)) {                                                   \
-			push_error(t->origin, "expected a valid token to follow."); \
+			push_error(t->origin, 1, "expected a valid token to follow."); \
 			return;                                                     \
 		} else t = t->next;                                                 \
 	} while (0);
@@ -1117,14 +1120,14 @@ void kill_variables_of_scope(int killscope)
 	do {                                                                                                 \
 		NEXT_TOKEN(t)                                                                                \
 		if (strcmp(t->value,str) || t->type != ttype) {                                              \
-			push_error(t->origin, "unexpected token \"%s\", expected \"%s\".\n", t->value, str); \
+			push_error(t->origin, 1, "unexpected token \"%s\", expected \"%s\".\n", t->value, str); \
 		}                                                                                            \
 	} while (0);
 
 #define PARSE_SYNTAX_ASSERT(err_cond, err_str)            \
 	do {                                              \
 		if (err_cond) {                           \
-			push_error(tok->origin, err_str); \
+			push_error(tok->origin, 1, err_str); \
 			*token = tok;                     \
 			return - 1;                       \
 		}                                         \
@@ -1133,7 +1136,7 @@ void kill_variables_of_scope(int killscope)
 #define PARSE_NEXT_TOKEN(t)                                                         \
 	do {                                                                        \
 		if (!(t->next)) {                                                   \
-			push_error(t->origin, "expected a valid token to follow."); \
+			push_error(t->origin, 1, "expected a valid token to follow."); \
 			return -1;                                                  \
 		} else t = t->next;                                                 \
 	} while (0);
@@ -1290,7 +1293,7 @@ void parse_operation(Token** token)
 		case MOP_DIV:    algo = ALGO_DIV;  break;
 		case MOP_MUL:    algo = ALGO_MUL;  break;
 		default:
-			push_error(tok->origin, "unrecognized operator.");
+			push_error(tok->origin, 1, "unrecognized operator.");
 			return;
 	}
 
@@ -1380,7 +1383,7 @@ enum {
 
 int stack[4096], stack_ptr = 0;
 
-char** parse_list(Token** token, int* count, int* origins)
+char** parse_list(Token** token, int* count, int** origins)
 {
 	Token* tok = *token;
 
@@ -1390,14 +1393,14 @@ char** parse_list(Token** token, int* count, int* origins)
 		args = realloc(args, sizeof(char*) * (*count + 1));
 		args[*count] = tok->value;
 		if (origins) {
-			origins = realloc(origins, sizeof(int) * (*count + 1));
-			origins[*count] = tok->origin;
+			*origins = realloc(*origins, sizeof(int) * (*count + 1));
+			(*origins)[*count] = tok->origin;
 		}
 
 		(*count)++;
 		
 		if (!tok->next) {
-			push_error(tok->origin, "expected a valid token to follow.");
+			push_error(tok->origin, 1, "expected a valid token to follow.");
 			*token = tok;
 			return NULL;
 		}
@@ -1406,12 +1409,12 @@ char** parse_list(Token** token, int* count, int* origins)
 		if (tok->data == MOP_RBRACE) {
 			break;
 		} else if (tok->data != MOP_COMMA) {
-			push_error(tok->origin, "expected a \",\".");
+			push_error(tok->origin, 1, "expected a \",\".");
 			*token = tok;
 			break;
 		} else {
 			if (!tok->next) {
-				push_error(tok->origin, "expected a valid token to follow.");
+				push_error(tok->origin, 1, "expected a valid token to follow.");
 				*token = tok;
 				return NULL;
 			}
@@ -1615,7 +1618,7 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 			
 			if (tok->type != TOK_IDENTIFIER)
-				push_error(tok->origin, "expected an identifier.");
+				push_error(tok->origin, 1, "expected an identifier.");
 
 			char* name = tok->value;
 			int origin = tok->origin;
@@ -1624,11 +1627,11 @@ void parse_keyword(Token** token)
 
 			int count = 0;
 			int* origins = malloc(2);
-			char** args = parse_list(&tok, &count, origins);
+			char** args = parse_list(&tok, &count, &origins);
 			SYNTAX_ASSERT(!args, "malformed argument list.")
 
 			if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
-				push_error(tok->origin, "expected \")\".");
+				push_error(tok->origin, 1, "expected \")\".");
 			}
 			NEXT_TOKEN(tok)
 			Token* body = tok;
@@ -1654,7 +1657,7 @@ void parse_keyword(Token** token)
 			}
 
 			if (depth) {
-				push_error(origin, "no terminating end statement to macro definition.");
+				push_error(origin, 0, "no terminating end statement to macro definition.");
 				tok = body;
 				*token = tok;
 				return;
@@ -1677,14 +1680,14 @@ void parse_macro(Token** token)
 
 	for (int i = stack_ptr - 1; i >= 1; i -= 2) {
 		if (stack[i] == STACK_MACRO && stack[i - 1] == macro_idx) {
-			push_error(macros[macro_idx].origin, "recursive macro definition.");
+			push_error(macros[macro_idx].origin, 0, "recursive macro definition.");
 			int num_args = 0;
 			EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
 			NEXT_TOKEN(tok)
 			char** args = parse_list(&tok, &num_args, NULL);
 
 			if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
-				push_error(tok->origin, "expected \")\".");
+				push_error(tok->origin, 0, "expected \")\".");
 			}
 
 			free(args);
@@ -1701,7 +1704,7 @@ void parse_macro(Token** token)
 	char** args = parse_list(&tok, &num_args, NULL);
 
 	if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
-		push_error(tok->origin, "expected \")\".");
+		push_error(tok->origin, 1, "expected \")\".");
 	}
 
 	SYNTAX_ASSERT(!args, "malformed argument list.")
@@ -1715,11 +1718,11 @@ void parse_macro(Token** token)
 	for (int i = 0; i < num_args; i++) {
 		int arg_idx = get_variable_index(args[i]);
 		if (arg_idx == -1) {
-			push_error(tok->origin, "unrecognized variable.");
+			push_error(tok->origin, 0, "unrecognized variable.");
 			failed = 1;
 			continue;
 		}
-		add_variable(macros[macro_idx].args[i], -1, variables[arg_idx].type, variables[get_variable_index(args[i])].location, context + 1, macros[macro_idx].origins[i]);
+		add_variable(macros[macro_idx].args[i], -1, variables[arg_idx].type, variables[arg_idx].location, context + 1, macros[macro_idx].origins[i]);
 	}
 
 	if (failed) {
@@ -1745,7 +1748,7 @@ void parse(Token* tok)
 		} else if (tok->type == TOK_IDENTIFIER && get_macro_index(tok->value) != -1) {
 			parse_macro(&tok);
 		} else {
-			push_error(tok->origin, "invalid statement.", tok->value);
+			push_error(tok->origin, 1, "invalid statement.", tok->value);
 			tok = tok->next;
 		}
 	}
