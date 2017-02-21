@@ -843,7 +843,7 @@ void sanitize(char* str)
 	}
 }
 
-#define NUM_TEMP_CELLS 10
+#define NUM_TEMP_CELLS 7
 int cell_pointer = 0, temp_cells = 0, temp_x = 0, temp_x_index = 0, temp_y = 0, temp_y_index = 0,
 	arrays = 0, if_cell;
 
@@ -1039,7 +1039,7 @@ int num_variables = 0,
 int get_variable_index(char* varname)
 {
 	for (int i = 0; i < num_variables; i++) {
-		if (!strcmp(variables[i].name, varname) && variables[i].ctx == context) {
+		if (!strcmp(variables[i].name, varname) && (variables[i].ctx == context || variables[i].ctx == -1)) {
 			variables[i].used = 1;
 			return i;
 		}
@@ -1815,6 +1815,7 @@ int main(int argc, char **argv)
 	temp_x_index = temp_x + 1,       temp_y_index = temp_y + 1;
 	arrays = temp_cells + NUM_TEMP_CELLS;
 
+	scope--; add_variable("null", -1, VAR_CELL, temp_cells + NUM_TEMP_CELLS - 1, -1, 0); scope++;
 	parse(tok);
 	free(raw);
 	delete_list(tok);
