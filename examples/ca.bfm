@@ -6,44 +6,92 @@ define WIDTH 66;
 define RULE_90  0;     define RULE_30  1;
 define RULE_150 2;     define RULE_73  3;
 
-array digits 3;
 array field (WIDTH * 2);
-
 field[WIDTH + WIDTH / 2] = 1; // initial condition
 
-var generation     var i
-var flag           var null /* used to throw away values
-                             * we don't want to keep */
+var gen                var rule
 
-var algo
-print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\n"
-print "select an algorithm: "
-input algo        algo - '0';
-input null /* eat the return character */
+print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\nselect an algorithm: "
+input rule          rule - '0';          input null /* eat the return character */
 
-print "generations: "
-decimal generation
+print "generations: "          decimal gen
 
+macro copy_buffer (field)
+	var i          i = WIDTH;
+	while i
+		i - 1;
+		
+		var idx    idx = i
+		idx + WIDTH;
+		field[i] = field[idx]
+	end
+end
+
+macro print_field (field)
+	var f          f = 1;
+	var i          i = 0;
+	while f
+		var temp
+		temp = field[i]
+		
+		if temp
+			print "#"
+		end
+		not temp
+		if temp
+			print " "
+		end
+		
+		i + 1;
+		/* while (i != WIDTH) */
+		f = i     f == WIDTH;     not f
+	end
+	print "\n"
+end
+
+macro update (field, rule)
+	var i          i = WIDTH;
+	while i
+		var result          result = 0;
+		i - 1;
+
+		update_cell (field, i, rule, result)
+
+		var idx    idx = i
+		idx + WIDTH;
+		
+		field[idx] = result
+	end
+end
+
+macro main (field, rule, gen)
+	while gen
+		gen - 1;
+		
+		copy_buffer (field)
+		print_field (field)
+		update (field, rule)
+	end
+end
+
+/* takes a field, an index in that field, and three variables to
+ * write the results into. */
 macro get_neighbors (field, i, left, center, right)
 	var left_idx       var center_idx       var right_idx
 
 	left_idx   = i
-	left_idx   - 1;
 	center_idx = i
 	right_idx  = i
+
+	left_idx   - 1;
 	right_idx  + 1;
 
 	var is_i_width      is_i_width = i
 	var is_i_zero       is_i_zero  = i
-	is_i_zero  == 0;
-	is_i_width == WIDTH - 1;
-	
-	if is_i_width
-		right_idx = 0;
-	end
-	if is_i_zero
-		left_idx  = WIDTH - 1;
-	end
+	is_i_zero  == 0;    is_i_width == WIDTH - 1;
+
+	if is_i_zero      left_idx  = WIDTH - 1;     end
+	if is_i_width     right_idx = 0;             end
 
 	left   = field[left_idx]
 	center = field[center_idx]
@@ -85,13 +133,11 @@ macro rule30 (left, center, right, not_left, not_center, not_right, result)
 			end
 		end
 	end
-	
 	if center
 		if not_left
 			result = 1;
 		end
 	end
-	
 	if right
 		if not_center
 			if not_left
@@ -114,7 +160,6 @@ macro rule150 (left, center, right, not_left, not_center, not_right, result)
 			end
 		end
 	end
-	
 	if center
 		if not_left
 			if not_right
@@ -122,7 +167,6 @@ macro rule150 (left, center, right, not_left, not_center, not_right, result)
 			end
 		end
 	end
-	
 	if right
 		if not_center
 			if not_left
@@ -146,7 +190,6 @@ macro rule73 (left, center, right, not_left, not_center, not_right, result)
 			end
 		end
 	end
-
 	if left
 		if center
 			if not_right
@@ -156,9 +199,9 @@ macro rule73 (left, center, right, not_left, not_center, not_right, result)
 	end
 end
 
-/* will find the outcome for a given RULE_ from an idx
- * in a given field and write it to result. */
-macro update_cell (field, i, algo, result)
+/* takes a field, an index in that field, a rule to apply, and a
+ * variable to write the result into. */
+macro update_cell (field, i, rule, result)
 	var left           var center           var right
 	var not_left       var not_center       var not_right
 
@@ -169,28 +212,28 @@ macro update_cell (field, i, algo, result)
 	not_right  = right     not not_right
 
 	var temp
-	temp = algo     temp == RULE_90;
+	temp = rule     temp == RULE_90;
 	if temp
 		rule90 (left,     center,     right,
 			not_left, not_center, not_right,
 			result)
 	end
 
-	temp = algo     temp == RULE_30;
+	temp = rule     temp == RULE_30;
 	if temp
 		rule30 (left,     center,     right,
 			not_left, not_center, not_right,
 			result)
 	end
 
-	temp = algo     temp == RULE_150;
+	temp = rule     temp == RULE_150;
 	if temp
 		rule150 (left,     center,     right,
 			 not_left, not_center, not_right,
 			 result)
 	end
 
-	temp = algo     temp == RULE_73;
+	temp = rule     temp == RULE_73;
 	if temp
 		rule73 (left,     center,     right,
 			not_left, not_center, not_right,
@@ -198,52 +241,4 @@ macro update_cell (field, i, algo, result)
 	end
 end
 
-/* main loop */
-while generation
-	generation - 1;
-	
-	/* copy the buffer into the main field */
-	i = WIDTH;
-	while i
-		i - 1;
-		
-		var idx    idx = i
-		idx + WIDTH;
-		field[i] = field[idx]
-	end
-
-	/* print the field */
-	flag = 1;
-	i = 0;
-	while flag
-		var temp
-		temp = field[i]
-		
-		if temp
-			print "#"
-		end
-		not temp
-		if temp
-			print " "
-		end
-		
-		i + 1;
-		flag = i    flag == WIDTH;
-		not flag
-	end
-	print "\n"
-	
-	/* do the logic */
-	i = WIDTH;
-	while i
-		var result          result = 0;
-		i - 1;
-
-		update_cell (field, i, algo, result)
-
-		var idx    idx = i
-		idx + WIDTH;
-		
-		field[idx] = result
-	end
-end
+main (field, rule, gen)
