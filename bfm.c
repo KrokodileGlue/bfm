@@ -276,7 +276,7 @@ void list_errors()
 		} else {
 			printf("warning: ");
 		}
-		
+
 		errprint(error);
 		putchar('\n');
 		
@@ -860,25 +860,6 @@ void sanitize(char* str)
 int cell_pointer = 0, temp_cells = 0, temp_x = 0, temp_x_index = 0, temp_y = 0, temp_y_index = 0,
 	arrays = 0, if_cell;
 
-/* keep a list of stack and a list of variables which must die when we hit an end statement */
-/* also keep a list of macros and their top levels */
-int estimate_variables(Token* tok)
-{
-	int top = 0, level = 0;
-
-	while (tok) {
-		if (tok->type == TOK_KYWRD && tok->data == KYWRD_VAR) {
-			level++;
-		}
-
-		if (level > top) top = level;
-
-		tok = tok->next;
-	}
-
-	return top;
-}
-
 void move_pointer(int distance)
 {
 	cell_pointer += distance;
@@ -1015,7 +996,7 @@ int get_definition_index(char* name)
 typedef struct {
 	char* name;
 	char** args;
-	int num_args, origin, *origins /* the locations of the arguments */;
+	int num_args, origin, top_level, *origins /* the locations of the arguments */;
 	Token* body;
 } Macro;
 Macro macros[4096];
@@ -1134,6 +1115,14 @@ void kill_variables_of_scope(int killscope)
 #define EXPECT_TOKEN(t, ttype, str)                                                                          \
 	do {                                                                                                 \
 		NEXT_TOKEN(t)                                                                                \
+		if (strcmp(t->value,str) || t->type != ttype) {                                              \
+			push_error(t->origin, 1, 1, "unexpected token \"%s\", expected \"%s\".\n", t->value, str); \
+		}                                                                                            \
+	} while (0);
+
+#define PARSE_EXPECT_TOKEN(t, ttype, str)                                                                          \
+	do {                                                                                                 \
+		PARSE_NEXT_TOKEN(t)                                                                                \
 		if (strcmp(t->value,str) || t->type != ttype) {                                              \
 			push_error(t->origin, 1, 1, "unexpected token \"%s\", expected \"%s\".\n", t->value, str); \
 		}                                                                                            \
@@ -1585,9 +1574,7 @@ void parse_keyword(Token** token)
 		} break;
 		case KYWRD_BF: {
 			NEXT_TOKEN(tok)
-
 			SYNTAX_ASSERT(tok->type != TOK_STRING, "expected a string literal.")
-			
 			emit(tok->value);
 		} break;
 		case KYWRD_DEFINE: {
@@ -1791,6 +1778,76 @@ void delete_list(Token* tok)
 		free(prev);
 }
 
+int scopes[4096], scope_ptr;
+int estimate_variables(Token** token)
+{
+	Token* tok = *token;
+	int top = 0, level = 0;
+
+	while (tok) {
+		if (tok->type == TOK_KYWRD && tok->data == KYWRD_VAR) {
+			level++;
+			scopes[scope_ptr]++;
+		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_MACRO) {
+			PARSE_NEXT_TOKEN(tok)
+			
+			if (tok->type != TOK_IDENTIFIER)
+				push_error(tok->origin, 1, 1, "expected an identifier.");
+
+			char* name = tok->value;
+			int origin = tok->origin;
+			PARSE_EXPECT_TOKEN(tok, TOK_OPERATOR, "(")
+			PARSE_NEXT_TOKEN(tok)
+
+			int count = 0;
+			int* origins = malloc(2);
+			char** args = parse_list(&tok, &count, &origins);
+			PARSE_SYNTAX_ASSERT(!args, "malformed argument list.")
+
+			if (tok->type != TOK_OPERATOR && strcmp(tok->value, ")")) {
+				push_error(tok->origin, 1, 1, "expected \")\".");
+			}
+			PARSE_NEXT_TOKEN(tok)
+			Token* body = tok;
+
+			add_macro(name, args, count, body, origin, origins);
+
+			stack[stack_ptr++] = num_macros - 1;
+			stack[stack_ptr++] = STACK_MACRO;
+		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_WHILE) {
+			stack[stack_ptr++] = 0;     stack[stack_ptr++] = STACK_WHILE;
+
+			scopes[++scope_ptr] = 0;
+		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_IF) {
+			stack[stack_ptr++] = 0;     stack[stack_ptr++] = STACK_IF;
+
+			scopes[++scope_ptr] = 0;
+		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_END) {
+			level -= scopes[scope_ptr];
+
+			if (stack[--stack_ptr] == STACK_MACRO) {
+				macros[stack[--stack_ptr]].top_level = scopes[scope_ptr];
+			} else {
+				stack_ptr--;
+			}
+			scope_ptr--;
+		} else if (tok->type == TOK_IDENTIFIER && get_macro_index(tok->value) != -1) {
+			int macro_idx = get_macro_index(tok->value);
+			if (level + macros[macro_idx].top_level > top) top = level + macros[macro_idx].top_level;
+		}
+
+		if (level > top) top = level;
+
+		tok = tok->next;
+	}
+	num_macros = 0;
+	stack_ptr = 0;
+	num_variables = 0;
+
+	//printf("top: %d\n", top);
+	return top;
+}
+
 int main(int argc, char **argv)
 {
 	for (int i = 1; i < argc; i++) {
@@ -1828,12 +1885,12 @@ int main(int argc, char **argv)
 	puts("\nFINISHED COMPLETE TOKEN LISTING.");
 #endif
 
-	temp_cells   = estimate_variables(tok) + 4;
+	temp_cells   = estimate_variables(&tok) + 4;
 	temp_x       = temp_cells - 4,   temp_y = temp_cells - 2;
 	temp_x_index = temp_x + 1,       temp_y_index = temp_y + 1;
 	arrays = temp_cells + NUM_TEMP_CELLS;
 
-	scope--; add_variable("null", -1, VAR_CELL, temp_cells + NUM_TEMP_CELLS - 1, -1, 0); scope++;
+	//scope--; add_variable("null", -1, VAR_CELL, temp_cells + NUM_TEMP_CELLS - 1, -1, -1); scope++;
 	parse(tok);
 	free(raw);
 	delete_list(tok);
