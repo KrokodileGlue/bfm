@@ -1,191 +1,98 @@
-print "         One Dimensional Cellular Automata in brainfuck\n"
-print "                  by retrosegfault.tumblr.com\n\n"
+define WIDTH 81;
 
-define WIDTH 66;
-define NUM_GENERATIONS 50;
+macro rule90 (l, r, nl, nr, result)
+	if l
+		if nr
+			result = 1;
+		end
+	end
+	if nl
+		if r
+			result = 1;
+		end
+	end
+end
 
-array field (WIDTH * 2);
+macro get_neighbors (field, i, left, right)
+	var l     var r
+	l = i     r = i
+	l - 1;    r + 1;
 
-field[WIDTH + WIDTH / 2] = 1; // initial condition
-
-var generation     generation = NUM_GENERATIONS;
-var i              var flag
-
-var left           var center           var right
-var left_index     var center_index     var right_index
-var not_left       var not_center       var not_right
-
-while generation
-	generation - 1;
+	var t
+	t = i     t == 0;
+	if t      l = WIDTH - 1;     end
 	
-	i = WIDTH;
+	t = i     t == WIDTH - 1;
+	if t      r = 0;             end
+
+	left = field[l]     right = field[r]
+end
+
+macro update_cell (field, i, result)
+	var left           var right
+	var not_left       var not_right
+
+	get_neighbors (field, i, left, right)
+
+	not_left   = left      not not_left
+	not_right  = right     not not_right
+
+	rule90 (left, right, not_left, not_right, result)
+end
+
+macro copy_buffer (field)
+	var i          i = WIDTH;
 	while i
 		i - 1;
 		
-		var index    index = i
-		index + WIDTH;
-		field[i] = field[index]
-	end
-
-	flag = 1;
-	i = 0;
-	while flag
-		var temp
-		temp = field[i]
-		
-		if temp
-			print "#"
-		end
-		not temp
-		if temp
-			print " "
-		end
-		
-		i + 1;
-		flag = i    flag == WIDTH;
-		not flag
-	end
-	print "\n"
-	
-	i = WIDTH;
-	while i // this loop will go through the field and do the logic
-		var result          result = 0;
-		i - 1;
-
-		var is_i_width      is_i_width = i
-		var is_i_zero       is_i_zero  = i
-		is_i_zero  == 0;
-		is_i_width == WIDTH - 1;
-
-		left_index   = i
-		left_index   - 1;
-		center_index = i
-		right_index  = i
-		right_index  + 1;
-		
-		if is_i_width
-			right_index = 0;
-		end
-		if is_i_zero
-			left_index  = WIDTH - 1;
-		end
-		
-		left   = field[left_index]
-		center = field[center_index]
-		right  = field[right_index]
-		
-		// left center and right now hold the (wrapped) cell values
-		
-		not_left   = left      not not_left
-		not_center = center    not not_center
-		not_right  = right     not not_right
-		
-		// rule 90
-		/* if left
-			if center
-				if not_right
-					result = 1;
-				end
-			end
-			if not_center
-				if not_right
-					result = 1;
-				end
-			end
-		end
-		
-		if not_left
-			if center
-				if right
-					result = 1;
-				end
-			end
-			if not_center
-				if right
-					result = 1;
-				end
-			end
-		end */
-		
-		// rule 30
-		/* if left
-			if not_center
-				if not_right
-					result = 1;
-				end
-			end
-		end
-		
-		if center
-			if not_left
-				result = 1;
-			end
-		end
-		
-		if right
-			if not_center
-				if not_left
-					result = 1;
-				end
-			end
-		end */
-		
-		// rule 150
-		if left
-			if center
-				if right
-					result = 1;
-				end
-			end
-			if not_center
-				if not_right
-					result = 1;
-				end
-			end
-		end
-		
-		if center
-			if not_left
-				if not_right
-					result = 1;
-				end
-			end
-		end
-		
-		if right
-			if not_center
-				if not_left
-					result = 1;
-				end
-			end
-		end
-
-		// rule 73
-		/* if not_left
-			if not_center
-				if not_right
-					result = 1;
-				end
-			end
-
-			if center
-				if right
-					result = 1;
-				end
-			end
-		end
-
-		if left
-			if center
-				if not_right
-					result = 1;
-				end
-			end
-		end */
-
-		var index    index = i
-		index + WIDTH;
-		
-		field[index] = result
+		var idx     idx = i     idx + WIDTH;
+		field[i] = field[idx]
 	end
 end
+
+macro print_field (field)
+	var f            f = 1;
+	var i            i = 0;
+	while f
+		var t    t = field[i]
+		
+		if t     print "#"     end     not t /* else */
+		if t     print " "     end
+		
+		/* while (i != WIDTH) */
+		i + 1;
+		f = i     f == WIDTH;     not f
+	end
+	print "\n"
+end
+
+macro update (field)
+	var i          i = WIDTH;
+	while i
+		i - 1;
+
+		var result          result = 0;
+		update_cell (field, i, result)
+
+		var idx     idx = i     idx + WIDTH;
+		field[idx] = result
+	end
+end
+
+macro run (field)
+	var f          f = 1;
+	while f
+		copy_buffer (field)
+		print_field (field)
+		update (field)
+	end
+end
+
+macro main ()
+	array field (WIDTH * 2);
+	field[WIDTH + WIDTH / 2] = 1; // initial condition
+
+	run (field)
+end
+
+main ()
