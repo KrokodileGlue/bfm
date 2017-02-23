@@ -1,35 +1,21 @@
-var i       i    = 1;
-var flag    flag = 1;
-
 define LIMIT 101;
 
-while flag
-	var printNum    printNum = 1;
+var f     f = 1;
+var i     i = 1;
+while f
+	var p     p = 1;
+
+	var t
+	t = i     t % 3;          not t
+	if t      print "Fizz"    p = 0;    end
 	
-	var mod    mod = i
-	mod % 3;   mod == 0;
-
-	if mod
-		print "Fizz"
-		printNum = 0;
-	end
-
-	mod = i
-	mod % 5;   mod == 0;
-
-	if mod
-		print "Buzz"
-		printNum = 0;
-	end
-
-	if printNum
-		print i
-	end
-
+	t = i     t % 5;          not t
+	if t      print "Buzz"    p = 0;    end
+	
+	if p      print i         end
+	
 	print "\n"
 
 	i + 1;
-
-	flag = i        flag == LIMIT;
-	not flag
+	f = i     f == LIMIT;     not f
 end
