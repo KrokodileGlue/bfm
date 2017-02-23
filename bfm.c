@@ -1782,11 +1782,10 @@ int scopes[4096], scope_ptr;
 int estimate_variables(Token** token)
 {
 	Token* tok = *token;
-	int top = 0, level = 0;
+	int top = 0;
 
 	while (tok) {
 		if (tok->type == TOK_KYWRD && tok->data == KYWRD_VAR) {
-			level++;
 			scopes[scope_ptr]++;
 		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_MACRO) {
 			PARSE_NEXT_TOKEN(tok)
@@ -1814,36 +1813,37 @@ int estimate_variables(Token** token)
 
 			stack[stack_ptr++] = num_macros - 1;
 			stack[stack_ptr++] = STACK_MACRO;
-		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_WHILE) {
-			stack[stack_ptr++] = 0;     stack[stack_ptr++] = STACK_WHILE;
 
 			scopes[++scope_ptr] = 0;
-		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_IF) {
-			stack[stack_ptr++] = 0;     stack[stack_ptr++] = STACK_IF;
-
-			scopes[++scope_ptr] = 0;
+		} else if (tok->type == TOK_KYWRD && (tok->data == KYWRD_IF || tok->data == KYWRD_WHILE)) {
+			stack[stack_ptr++] = 0;
+			stack[stack_ptr++] = STACK_IF;
 		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_END) {
 			if (stack[--stack_ptr] == STACK_MACRO) {
 				macros[stack[--stack_ptr]].top_level = scopes[scope_ptr];
+				scope_ptr--;
 			} else {
 				stack_ptr--;
 			}
-			level -= scopes[scope_ptr--];
 		} else if (tok->type == TOK_IDENTIFIER && get_macro_index(tok->value) != -1) {
 			int macro_idx = get_macro_index(tok->value);
-			
-			if (level + macros[macro_idx].top_level > top)
-				top = level + macros[macro_idx].top_level;
+			scopes[scope_ptr] += macros[macro_idx].top_level;
 		}
-
-		if (level > top) top = level;
 
 		tok = tok->next;
 	}
+
+#if 0
+	for (int i = 0; i < num_macros; i++) {
+		printf ("[%s][%d]\n", macros[i].name, macros[i].top_level);
+	}
+#endif
+
 	num_macros = 0;
 	num_variables = 0;
 	num_definitions = 0;
 	stack_ptr = 0;
+	top = scopes[scope_ptr];
 
 	// printf("top: %d\n", top);
 	check_errors();
