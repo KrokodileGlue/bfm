@@ -1823,17 +1823,17 @@ int estimate_variables(Token** token)
 
 			scopes[++scope_ptr] = 0;
 		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_END) {
-			level -= scopes[scope_ptr];
-
 			if (stack[--stack_ptr] == STACK_MACRO) {
 				macros[stack[--stack_ptr]].top_level = scopes[scope_ptr];
 			} else {
 				stack_ptr--;
 			}
-			scope_ptr--;
+			level -= scopes[scope_ptr--];
 		} else if (tok->type == TOK_IDENTIFIER && get_macro_index(tok->value) != -1) {
 			int macro_idx = get_macro_index(tok->value);
-			if (level + macros[macro_idx].top_level > top) top = level + macros[macro_idx].top_level;
+			
+			if (level + macros[macro_idx].top_level > top)
+				top = level + macros[macro_idx].top_level;
 		}
 
 		if (level > top) top = level;
@@ -1841,10 +1841,13 @@ int estimate_variables(Token** token)
 		tok = tok->next;
 	}
 	num_macros = 0;
-	stack_ptr = 0;
 	num_variables = 0;
+	num_definitions = 0;
+	stack_ptr = 0;
 
 	//printf("top: %d\n", top);
+	check_errors();
+
 	return top;
 }
 
@@ -1890,7 +1893,7 @@ int main(int argc, char **argv)
 	temp_x_index = temp_x + 1,       temp_y_index = temp_y + 1;
 	arrays = temp_cells + NUM_TEMP_CELLS;
 
-	//scope--; add_variable("null", -1, VAR_CELL, temp_cells + NUM_TEMP_CELLS - 1, -1, -1); scope++;
+	scope--; add_variable("null", -1, VAR_CELL, temp_cells + NUM_TEMP_CELLS - 1, -1, -1); scope++;
 	parse(tok);
 	free(raw);
 	delete_list(tok);
