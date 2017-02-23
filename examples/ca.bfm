@@ -1,203 +1,116 @@
-print "         One Dimensional Cellular Automata in brainfuck\n"
-print "                  by retrosegfault.tumblr.com\n"
+// print "         One Dimensional Cellular Automata in brainfuck\n"
+// print "                  by retrosegfault.tumblr.com\n"
 
 define WIDTH 66;
 
-define RULE_90  0;     define RULE_30  1;
-define RULE_150 2;     define RULE_73  3;
-
-array field (WIDTH * 2);
-field[WIDTH + WIDTH / 2] = 1; // initial condition
-
-var gen                var rule
-
-print "\t0: rule 90\n\t1: rule 30\n\t2: rule 150\n\t3: rule 73\nselect an algorithm: "
-input rule          rule - '0';          input null /* eat the return character */
-
-print "generations: "          decimal gen
-
-macro copy_buffer (field)
-	var i          i = WIDTH;
-	while i
-		i - 1;
-		
-		var idx    idx = i
-		idx + WIDTH;
-		field[i] = field[idx]
-	end
-end
-
-macro print_field (field)
-	var f          f = 1;
-	var i          i = 0;
-	while f
-		var temp
-		temp = field[i]
-		
-		if temp
-			print "#"
+macro rule90 (l, c, r, nl, nc, nr, result)
+	if l
+		if nr
+			result = 1;
 		end
-		not temp
-		if temp
-			print " "
+	end
+	if nl
+		if r
+			result = 1;
 		end
-		
-		i + 1;
-		/* while (i != WIDTH) */
-		f = i     f == WIDTH;     not f
-	end
-	print "\n"
-end
-
-macro update (field, rule)
-	var i          i = WIDTH;
-	while i
-		var result          result = 0;
-		i - 1;
-
-		update_cell (field, i, rule, result)
-
-		var idx    idx = i
-		idx + WIDTH;
-		
-		field[idx] = result
 	end
 end
 
-macro main (field, rule, gen)
-	while gen
-		gen - 1;
-		
-		copy_buffer (field)
-		print_field (field)
-		update (field, rule)
+macro rule30 (l, c, r, nl, nc, nr, result)
+	if l
+		if nc
+			if nr
+				result = 1;
+			end
+		end
+	end
+	if c
+		if nl
+			result = 1;
+		end
+	end
+	if r
+		if nc
+			if nl
+				result = 1;
+			end
+		end
+	end
+end
+
+macro rule150 (l, c, r, nl, nc, nr, result)
+	if l
+		if c
+			if r
+				result = 1;
+			end
+		end
+		if nc
+			if nr
+				result = 1;
+			end
+		end
+	end
+	if c
+		if nl
+			if nr
+				result = 1;
+			end
+		end
+	end
+	if r
+		if nc
+			if nl
+				result = 1;
+			end
+		end
+	end
+end
+
+macro rule110 (l, c, r, nl, nc, nr, result)
+	if l
+		if c
+			if nr
+				result = 1;
+			end
+		end
+		if nc
+			if r
+				result = 1;
+			end
+		end
+	end
+	if nl
+		if c
+			result = 1;
+		end
+		if nc
+			if r
+				result = 1;
+			end
+		end
 	end
 end
 
 /* takes a field, an index in that field, and three variables to
  * write the results into. */
 macro get_neighbors (field, i, left, center, right)
-	var left_idx       var center_idx       var right_idx
+	var l     var c     var r
+	l = i     c = i     r = i
+	l - 1;              r + 1;
 
-	left_idx   = i
-	center_idx = i
-	right_idx  = i
+	var t
+	t = i     t == 0;
+	if t      l = WIDTH - 1;     end
+	
+	t = i     t == WIDTH - 1;
+	if t      r = 0;             end
 
-	left_idx   - 1;
-	right_idx  + 1;
-
-	var is_i_width      is_i_width = i
-	var is_i_zero       is_i_zero  = i
-	is_i_zero  == 0;    is_i_width == WIDTH - 1;
-
-	if is_i_zero      left_idx  = WIDTH - 1;     end
-	if is_i_width     right_idx = 0;             end
-
-	left   = field[left_idx]
-	center = field[center_idx]
-	right  = field[right_idx]
+	left = field[l]     center = field[c]     right = field[r]
 end
 
-macro rule90 (left, center, right, not_left, not_center, not_right, result)
-	if left
-		if center
-			if not_right
-				result = 1;
-			end
-		end
-		if not_center
-			if not_right
-				result = 1;
-			end
-		end
-	end
-	if not_left
-		if center
-			if right
-				result = 1;
-			end
-		end
-		if not_center
-			if right
-				result = 1;
-			end
-		end
-	end
-end
-
-macro rule30 (left, center, right, not_left, not_center, not_right, result)
-	if left
-		if not_center
-			if not_right
-				result = 1;
-			end
-		end
-	end
-	if center
-		if not_left
-			result = 1;
-		end
-	end
-	if right
-		if not_center
-			if not_left
-				result = 1;
-			end
-		end
-	end
-end
-
-macro rule150 (left, center, right, not_left, not_center, not_right, result)
-	if left
-		if center
-			if right
-				result = 1;
-			end
-		end
-		if not_center
-			if not_right
-				result = 1;
-			end
-		end
-	end
-	if center
-		if not_left
-			if not_right
-				result = 1;
-			end
-		end
-	end
-	if right
-		if not_center
-			if not_left
-				result = 1;
-			end
-		end
-	end
-end
-
-macro rule73 (left, center, right, not_left, not_center, not_right, result)
-	if not_left
-		if not_center
-			if not_right
-				result = 1;
-			end
-		end
-
-		if center
-			if right
-				result = 1;
-			end
-		end
-	end
-	if left
-		if center
-			if not_right
-				result = 1;
-			end
-		end
-	end
-end
+define RULE_90  0;     define RULE_30  1;
+define RULE_150 2;     define RULE_110 3;
 
 /* takes a field, an index in that field, a rule to apply, and a
  * variable to write the result into. */
@@ -233,12 +146,74 @@ macro update_cell (field, i, rule, result)
 			 result)
 	end
 
-	temp = rule     temp == RULE_73;
+	temp = rule     temp == RULE_110;
 	if temp
-		rule73 (left,     center,     right,
-			not_left, not_center, not_right,
-			result)
+		rule110 (left,     center,     right,
+			 not_left, not_center, not_right,
+			 result)
 	end
 end
 
-main (field, rule, gen)
+macro copy_buffer (field)
+	var i          i = WIDTH;
+	while i
+		i - 1;
+		
+		var idx     idx = i     idx + WIDTH;
+		field[i] = field[idx]
+	end
+end
+
+macro print_field (field)
+	var f            f = 1;
+	var i            i = 0;
+	while f
+		var t    t = field[i]
+		
+		if t     print "#"     end     not t /* else */
+		if t     print " "     end
+		
+		/* while (i != WIDTH) */
+		i + 1;
+		f = i     f == WIDTH;     not f
+	end
+	print "\n"
+end
+
+macro update (field, rule)
+	var i          i = WIDTH;
+	while i
+		i - 1;
+
+		var result          result = 0;
+		update_cell (field, i, rule, result)
+
+		var idx     idx = i     idx + WIDTH;
+		field[idx] = result
+	end
+end
+
+macro run (field, rule, gen)
+	while gen
+		gen - 1;
+		
+		copy_buffer (field)
+		print_field (field)
+		update (field, rule)
+	end
+end
+
+macro main ()
+	print "0: rule 90\n1: rule 30\n2: rule 150\n3: rule 110\n"
+
+	array field (WIDTH * 2);
+	field[WIDTH + WIDTH / 2] = 1; // initial condition
+
+	var gen          var rule
+
+	print "rule: "            decimal rule
+	print "generations: "     decimal gen
+	run (field, rule, gen)
+end
+
+main ()

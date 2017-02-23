@@ -1046,7 +1046,7 @@ int get_variable_index(char* varname)
 	return -1;
 }
 
-void add_variable(char* varname, int num_elements, int type, int location, int ctx, int origin)
+void add_variable(char* varname, int num_elements, int type, int location, int ctx, int origin, int var_scope)
 {
 	if (get_variable_index(varname) != -1 && context == ctx) {
 		push_error(origin, 0, 1, "variable already defined.");
@@ -1069,6 +1069,7 @@ void add_variable(char* varname, int num_elements, int type, int location, int c
 	variables[num_variables].ctx = ctx;
 	variables[num_variables].used = 0;
 	variables[num_variables].origin = origin;
+	variables[num_variables].scope = var_scope;
 	variables[num_variables++].name = varname;
 }
 
@@ -1444,7 +1445,7 @@ void parse_keyword(Token** token)
 			SYNTAX_ASSERT(tok->type != TOK_IDENTIFIER, "expected an identifier.")
 			SYNTAX_ASSERT(get_keyword(tok->value) != -1, "variable names must not be keywords.")
 
-			add_variable(tok->value, -1, VAR_CELL, used_variable_cells++, context, tok->origin);
+			add_variable(tok->value, -1, VAR_CELL, used_variable_cells++, context, tok->origin, scope);
 			break;
 		case KYWRD_WHILE: {
 			NEXT_TOKEN(tok)
@@ -1467,6 +1468,7 @@ void parse_keyword(Token** token)
 		case KYWRD_END: {
 			SYNTAX_ASSERT(stack_ptr < 1, "unmatched end statement.")
 
+			kill_variables_of_scope(scope--);
 			switch (stack[--stack_ptr]) {
 				case STACK_WHILE:
 					move_pointer_to(stack[--stack_ptr]);
@@ -1482,8 +1484,6 @@ void parse_keyword(Token** token)
 					kill_variables_of_context(context--);
 					break;
 			}
-
-			kill_variables_of_scope(scope--);
 		} break;
 		case KYWRD_GOTO: {
 			NEXT_TOKEN(tok)
@@ -1570,7 +1570,7 @@ void parse_keyword(Token** token)
 
 			int a = expression(&tok);
 			EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
-			add_variable(name, a, VAR_ARRAY, arrays + used_array_cells, context, tok->origin);
+			add_variable(name, a, VAR_ARRAY, arrays + used_array_cells, context, tok->origin, scope);
 		} break;
 		case KYWRD_BF: {
 			NEXT_TOKEN(tok)
@@ -1724,7 +1724,7 @@ void parse_macro(Token** token)
 			failed = 1;
 			continue;
 		}
-		add_variable(macros[macro_idx].args[i], -1, variables[arg_idx].type, variables[arg_idx].location, context + 1, macros[macro_idx].origins[i]);
+		add_variable(macros[macro_idx].args[i], -1, variables[arg_idx].type, variables[arg_idx].location, context + 1, macros[macro_idx].origins[i], -1);
 	}
 
 	if (failed) {
@@ -1845,7 +1845,7 @@ int estimate_variables(Token** token)
 	num_definitions = 0;
 	stack_ptr = 0;
 
-	//printf("top: %d\n", top);
+	// printf("top: %d\n", top);
 	check_errors();
 
 	return top;
@@ -1893,7 +1893,7 @@ int main(int argc, char **argv)
 	temp_x_index = temp_x + 1,       temp_y_index = temp_y + 1;
 	arrays = temp_cells + NUM_TEMP_CELLS;
 
-	scope--; add_variable("null", -1, VAR_CELL, temp_cells + NUM_TEMP_CELLS - 1, -1, -1); scope++;
+	add_variable("null", -1, VAR_CELL, temp_cells + NUM_TEMP_CELLS - 1, -1, -1, -1);
 	parse(tok);
 	free(raw);
 	delete_list(tok);
