@@ -1668,7 +1668,19 @@ void parse_operation(Token** token)
 		int a = expression(&tok);
 		EXPECT_TOKEN(tok, TOK_OPERATOR, ";")
 
-		if (operation == MOP_EQU) {
+		if (operation == MOP_SUB) {
+			set_cell_to_constant(temp_y, a);
+			move_pointer_to(temp_y), emit("["), move_pointer_to(left), emit("-"), move_pointer_to(temp_y), emit("-]");
+			*token = tok;
+			FERRY_ARRAY_BACK
+			return;
+		} else if (operation == MOP_ADD) {
+			set_cell_to_constant(temp_y, a);
+			move_pointer_to(temp_y), emit("["), move_pointer_to(left), emit("+"), move_pointer_to(temp_y), emit("-]");
+			*token = tok;
+			FERRY_ARRAY_BACK
+			return;
+		} else if (operation == MOP_EQU) {
 			set_cell_to_constant(left, a);
 
 			*token = tok;
