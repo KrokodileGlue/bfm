@@ -996,7 +996,7 @@ int get_definition_index(char* name)
 typedef struct {
 	char* name;
 	char** args;
-	int num_args, origin, top_level, *origins /* the locations of the arguments */;
+	int num_args, origin, *origins /* the locations of the arguments */;
 	Token* body;
 } Macro;
 Macro macros[4096];
@@ -2104,6 +2104,13 @@ int estimate_variables(Token** token)
 	int top = 0;
 
 	while (tok) {
+		int living_cells = 0;
+		for (int i = 0; i <= scope_ptr; i++) {
+			living_cells += scopes[i];
+		}
+
+		top = (living_cells > top) ? living_cells : top;
+
 		if (tok->type == TOK_KYWRD && tok->data == KYWRD_VAR) {
 			scopes[scope_ptr]++;
 		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_MACRO) {
@@ -2130,39 +2137,67 @@ int estimate_variables(Token** token)
 
 			add_macro(name, args, count, body, origin, origins);
 
-			stack[stack_ptr++] = num_macros - 1;
-			stack[stack_ptr++] = STACK_MACRO;
+			int depth = 1;
+			while (tok) {
+				if (tok->type == TOK_KYWRD) {
+					if (tok->data == KYWRD_IF || tok->data == KYWRD_WHILE) {
+						depth++;
+					} else if (tok->data == KYWRD_END) {
+						depth--;
+					}
+				} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_MACRO) {
+					depth++;
+				}
 
-			scopes[++scope_ptr] = 0;
-		} else if (tok->type == TOK_KYWRD && (tok->data == KYWRD_IF || tok->data == KYWRD_WHILE)) {
-			stack[stack_ptr++] = 0;
-			stack[stack_ptr++] = STACK_IF;
-		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_END) {
-			if (stack[--stack_ptr] == STACK_MACRO) {
-				macros[stack[--stack_ptr]].top_level = scopes[scope_ptr];
-				scope_ptr--;
-			} else {
-				stack_ptr--;
+				if (!depth)
+					break;
+
+				tok = tok->next;
+			}
+
+			if (depth) {
+				push_error(origin, 0, 1, "no terminating end statement to macro definition.");
+				tok = body;
+				*token = tok;
+				return -1;
 			}
 		} else if (tok->type == TOK_IDENTIFIER && get_macro_index(tok->value) != -1) {
 			int macro_idx = get_macro_index(tok->value);
-			scopes[scope_ptr] += macros[macro_idx].top_level;
+			
+			tok_stack[tok_sp++] = tok;
+			tok = macros[macro_idx].body->prev;
+
+			stack[stack_ptr++] = macro_idx;
+			stack[stack_ptr++] = STACK_MACRO;
+			
+			scopes[++scope_ptr] = 0;
+		} else if (tok->type == TOK_KYWRD && (tok->data == KYWRD_WHILE || tok->data == KYWRD_IF)) {
+			stack[stack_ptr++] = 0;
+			stack[stack_ptr++] = STACK_WHILE;
+			
+			scopes[++scope_ptr] = 0;
+		} else if (tok->type == TOK_KYWRD && tok->data == KYWRD_END) {
+			switch (stack[--stack_ptr]) {
+				case STACK_MACRO: {
+					tok = tok_stack[--tok_sp];
+					stack_ptr--;
+				} break;
+				case STACK_WHILE: {
+					stack_ptr--;
+				} break;
+			}
+
+			scope_ptr--;
 		}
 
 		tok = tok->next;
 	}
 
-#if 0
-	for (int i = 0; i < num_macros; i++) {
-		printf ("[%s][%d]\n", macros[i].name, macros[i].top_level);
-	}
-#endif
-
 	num_macros = 0;
 	num_variables = 0;
 	num_definitions = 0;
 	stack_ptr = 0;
-	top = scopes[scope_ptr];
+	tok_sp = 0;
 
 	// printf("top: %d\n", top);
 	check_errors();
