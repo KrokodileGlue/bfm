@@ -83,12 +83,11 @@ void save_file(FILE* file, char* str)
 	}
 }
 
-#define MAX_ERRORS 4096
 typedef struct {
 	int errloc, is_suppressable, is_fatal;
 	char* error;
 } Error;
-Error errors[MAX_ERRORS];
+Error* errors = NULL;
 
 char *raw = NULL, *input_path = NULL, *output_path = NULL;
 int num_errors;
@@ -234,6 +233,12 @@ void fatal_error(int errloc /* the location of the error */, const char* message
 
 void push_error(int errloc /* the location of the error */, int is_suppressable, int is_fatal, const char* message, ...)
 {
+	if (!errors) {
+		errors = bfm_malloc(sizeof(Error));
+	} else {
+		errors = realloc(errors, (num_errors + 1) * sizeof(Error));
+	}
+
 	errors[num_errors].errloc = errloc;
 	errors[num_errors].is_suppressable = is_suppressable;
 	errors[num_errors].is_fatal = is_fatal;
@@ -885,10 +890,11 @@ enum {
 	ALGO_GRT, ALGO_NOT,
 	ALGO_CEQU, ALGO_ARRAY_WRITE,
 	ALGO_ARRAY_READ, ALGO_PRINTV,
-	ALGO_OR, ALGO_DECIM
+	ALGO_OR, ALGO_DECIM,
+	ALGO_AND
 };
 
-#define NUM_ALGORITHMS 14
+#define NUM_ALGORITHMS 15
 char algorithms[NUM_ALGORITHMS][256] = {
 	"0[-]1[-]2[-]3[-]x[0+x-]0[y[1+2+y-]2[y+2-]1[2+0-[2[-]3+0-]3[0+3-]2[1-[x-1[-]]+2-]1-]x+0]", /* division */
 	"0[-]1[-]x[1+x-]1[y[x+0+y-]0[y+0-]1-]", /* multiplication */
@@ -903,7 +909,8 @@ char algorithms[NUM_ALGORITHMS][256] = {
 	"z[-y+y>+<z]y[-z+y]z[-y+y>>+<<z]y[-z+y]>[>>>[-<<<<+>>>>]<<[->+<]<[->+<]>-]>>>[-<+<<+>>>]<<<[->>>+<<<]>[[-<+>]>[-<+>]<<<<[->>>>+<<<<]>>-]<<x[-]y>>>[-<<<x+y>>>]<<<", /* x = y(z) (array read) */
 	"0[-]1[-]2[-]3[-]4[-]5[-]6[-]7[-]x[0+1+x-]1[x+1-]0[>>+>+<<<-]>>>[<<<+>>>-]<<+>[<->[>++++++++++<[->-[>+>>]>[+[-<+>]>+>>]<<<<<]>[-]++++++++[<++++++>-]>[<<+>>-]>[<<+>>-]<<]>]<[->>++++++++[<++++++>-]]<[.[-]<]<", /* printv */
 	"0[-]1[-]x[1+x-]1[x-1[-]]y[1+0+y-]0[y+0-]1[x[-]-1[-]]", /* logical or */
-	"0[-]>[-]+[[-]>[-],[+[-----------[>[-]++++++[<------>-]<--<<[->>++++++++++<<]>>[-<<+>>]<+>]]]<]<0[x+0-]" /* decimal input */
+	"0[-]>[-]+[[-]>[-],[+[-----------[>[-]++++++[<------>-]<--<<[->>++++++++++<<]>>[-<<+>>]<+>]]]<]<0[x+0-]", /* decimal input */
+	"0[-]1[-]x[1+x-]1[1[-]y[1+0+y-]0[y+0-]1[x+1[-]]]" /* logical and */
 };
 
 void emit_algo(int algo, int x, int y, int z)
@@ -1624,6 +1631,7 @@ void parse_operation(Token** token)
 		case MOP_OROR:   algo = ALGO_OR;   break;
 		case MOP_DIV:    algo = ALGO_DIV;  break;
 		case MOP_MUL:    algo = ALGO_MUL;  break;
+		case MOP_ANDAND: algo = ALGO_AND;  break;
 		default:
 			push_error(tok->origin, 1, 1, "unrecognized operator.");
 			return;
