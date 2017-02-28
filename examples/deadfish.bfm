@@ -1,45 +1,38 @@
-var flag     flag = 1;
-var cell     var temp
+macro do_instruction (c, f, cell)
+	var t
 
-while flag
-	print ">> "
-	var eol     eol = 1;
-	var c
-	while eol
-		input c
-		var p       p = 0;
+	t = c   t == 'i';
+	if t    cell + 1;       end
 
-		temp = c    temp == 'i';
-		if temp
-			cell + 1;
-		end
+	t = c   t == 'd';
+	if t    cell - 1;       end
+	
+	t = c   t == 's';
+	if t    cell * cell     end
 
-		temp = c    temp == 'd';
-		if temp
-			cell - 1;
-		end
+	t = c   t == 'o';
+	if t    print cell      print "\n"      end
+
+	t = c   t == 'h';
+	if t    f = 0;          end
+end
+
+macro main ()
+	var f           f = 1;
+	var cell        cell = 0;
+	
+	while f
+		print ">> "
+		var eol eol = 1;
 		
-		temp = c    temp == 's';
-		if temp
-			cell * cell
-		end
+		while eol
+			var c   input c
 
-		temp = c    temp == 'o';
-		if temp
-			p = 1;
-			print cell
+			do_instruction (c, f, cell)
+			
+			eol = c eol == '\n';    not eol
 		end
-
-		temp = c    temp == 'h';
-		if temp
-			flag = 0;
-		end
-
-		if p
-			print "\n"
-		end
-
-		eol = c     eol == '\n';
-		not eol
 	end
 end
+
+main ()
