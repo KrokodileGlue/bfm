@@ -73,6 +73,11 @@ void save_file(FILE* file, char* str)
 	if (!str)
 		return;
 
+	if (!file) {
+		fatal_error(-1, "could not open output file.");
+		return;
+	}
+
 	int index = 0;
 	while (str[index] != '\0') {
 		if (index % 80 == 0 && index != 0) {
@@ -176,7 +181,7 @@ char* get_line_from_index(int index)
 }
 
 void errprint(char* str) /* when printing errors, the size of tabs can be an issue.
-                     * This prints a string with four spaces for tabs. */
+                          * This prints a string with four spaces for tabs. */
 {
 	size_t i;
 	for (i = 0; i < strlen(str); i++) {
