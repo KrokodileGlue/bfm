@@ -916,7 +916,9 @@ char algorithms[NUM_ALGORITHMS][256] = {
 	"0[-]1[-]x[1+x-]1[x-1[-]]y[1+0+y-]0[y+0-]1[x[-]-1[-]]", /* logical or */
 	"0[-]>[-]+[[-]>[-],[+[-----------[>[-]++++++[<------>-]<--<<[->>++++++++++<<]>>[-<<+>>]<+>]]]<]<0[x+0-]", /* decimal input */
 	"0[-]1[-]x[1+x-]1[1[-]y[1+0+y-]0[y+0-]1[x+1[-]]]", /* logical and */
-	// 0 1 0 a b 0
+	
+	// this algoritm is from http://stackoverflow.com/a/13327857
+	// it fails if x is 255, it should be replaced
 	"0[-]1[-]+2[-]3[-]x[3+x-]4[-]5[-]y[4+5+y-]5[y+5-]3+>+<[->-[>]<<]<[-]<[-<>>>x+0]", /* x < y */
 };
 
