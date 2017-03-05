@@ -241,7 +241,7 @@ void push_error(int errloc /* the location of the error */, int is_suppressable,
 	if (!errors) {
 		errors = bfm_malloc(sizeof(Error));
 	} else {
-		errors = realloc(errors, (num_errors + 1) * sizeof(Error));
+		errors = bfm_realloc(errors, (num_errors + 1) * sizeof(Error));
 	}
 
 	errors[num_errors].errloc = errloc;
@@ -815,7 +815,7 @@ void sanitize(char* str)
         c == '<' || c == '>'     \
         || c == '+' || c == '-')
 
-	char* buf = malloc(strlen(str) + 1);
+	char* buf = bfm_malloc(strlen(str) + 1);
 
 	size_t starting_len;
 	char* i, *out;
@@ -1731,12 +1731,12 @@ char** parse_list(Token** token, int* count, int** origins)
 	Token* tok = *token;
 
 	*count = 0;
-	char** args = malloc(sizeof(char*) * 2);
+	char** args = bfm_malloc(sizeof(char*) * 2);
 	while (tok->type == TOK_IDENTIFIER && tok->next != NULL && tok->next->type == TOK_OPERATOR) {
-		args = realloc(args, sizeof(char*) * (*count + 1));
+		args = bfm_realloc(args, sizeof(char*) * (*count + 1));
 		args[*count] = tok->value;
 		if (origins) {
-			*origins = realloc(*origins, sizeof(int) * (*count + 1));
+			*origins = bfm_realloc(*origins, sizeof(int) * (*count + 1));
 			(*origins)[*count] = tok->origin;
 		}
 
@@ -1966,7 +1966,7 @@ void parse_keyword(Token** token)
 			NEXT_TOKEN(tok)
 
 			int count = 0;
-			int* origins = malloc(2);
+			int* origins = bfm_malloc(2);
 			char** args = parse_list(&tok, &count, &origins);
 			SYNTAX_ASSERT(!args, "malformed argument list.")
 
@@ -2144,7 +2144,7 @@ int estimate_variables(Token** token)
 			PARSE_NEXT_TOKEN(tok)
 
 			int count = 0;
-			int* origins = malloc(2);
+			int* origins = bfm_malloc(2);
 			char** args = parse_list(&tok, &count, &origins);
 			PARSE_SYNTAX_ASSERT(!args, "malformed argument list.")
 
