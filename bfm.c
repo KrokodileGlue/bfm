@@ -1115,7 +1115,11 @@ void kill_variables_of_scope(int killscope)
 		if (variables[i].scope == killscope) {
 			// printf("killing variable %s\n", variables[i].name);
 			num_variables--;
-			used_variable_cells--;
+			if (variables[i].type == VAR_CELL) {
+				used_variable_cells--;
+			} else {
+				used_array_cells -= variables[i].num_elements + 5;
+			}
 		}
 	}
 }
