@@ -1,0 +1,223 @@
+macro equ16 (a1, a2, b1, b2)
+	a1 = b1         a2 = b2
+end
+
+macro inc16 (a1, a2)
+	var t   t = a1  t == 255;
+	if t    a2 + 1; end
+	a1 + 1;
+end
+
+macro dec16 (a1, a2)
+	var t   t = a1  t == 0;
+	if t    a2 - 1; end
+	a1 - 1;
+end
+
+macro cmp16 (a1, a2, b1, b2, result)
+	result = 0;
+	
+	var t1  t1 = a1         t1 == b1
+	var t2  t2 = a2         t2 == b2
+	t1 && t2
+
+	if t1   result = 1;     end
+end
+
+macro add16 (a1, a2, b1, b2)
+	var t1          var t2
+	t1 = b1         t2 = b2
+
+	var f   f = 1;
+	while f
+		dec16 (b1, b2)
+		inc16 (a1, a2)
+		f = b1  f || b2 /* while (b1 || b2) */
+	end
+
+	b1 = t1 b2 = t2
+end
+
+macro sub16 (a1, a2, b1, b2)
+	var t1          var t2
+	t1 = b1         t2 = b2
+
+	var f   f = 1;
+	while f
+		dec16 (b1, b2)
+		dec16 (a1, a2)
+		f = b1  f || b2 /* while (b1 || b2) */
+	end
+
+	b1 = t1 b2 = t2
+end
+
+macro mul16 (a1, a2, b1, b2)
+	var t1          var t2
+	t1 = a1         t2 = a2
+
+	dec16 (b1, b2)
+	var f   f = 1;
+	while f
+		add16 (a1, a2, t1, t2)
+		dec16 (b1, b2)
+		f = b1  f || b2 /* while (b1 || b2) */
+	end
+end
+
+/*
+int a = 234, b = 10;
+	
+int times_in = 0, temp = 0, temp_b = b, mod = 0;
+while (temp != a) {
+	temp++, b--;
+	if (!b) times_in++, b = temp_b;
+	mod = temp_b - b;
+}
+a = times_in;
+*/
+
+macro mod16 (a1, a2, b1, b2)
+	var ti1 ti1 = 0;        var ti2 ti2 = 0;
+	var t1  t1 = 0;         var t2  t2 = 0;
+	var tb1 var tb2         equ16 (tb1, tb2, b1, b2)
+	var mod1        mod1 = 0;       var mod2        mod2 = 0;
+
+	var f   cmp16 (t1, t2, a1, a2, f)       not f
+	while f
+		/* temp++, b--; */
+		inc16 (t1, t2)
+		dec16 (b1, b2)
+
+		/* if (!b) times_in++, b = temp_b; */
+		var t
+		t = b1  t || b2 not t
+		if t
+			inc16 (ti1, ti2)
+			equ16 (b1, b2, tb1, tb2)
+		end
+
+		/* mod = temp_b - b; */
+		mod1 = tb1      mod2 = tb2
+		sub16 (mod1, mod2, b1, b2)
+
+		/* while (temp != a) */
+		cmp16 (t1, t2, a1, a2, f)
+		not f
+	end
+
+	equ16 (a1, a2, mod1, mod2)
+	equ16 (b1, b2, tb1, tb2)
+end
+
+macro div16 (a1, a2, b1, b2)
+	var ti1 ti1 = 0;        var ti2 ti2 = 0;
+	var t1  t1 = 0;         var t2  t2 = 0;
+	var tb1 var tb2         equ16 (tb1, tb2, b1, b2)
+
+	var f   cmp16 (t1, t2, a1, a2, f)       not f
+	while f
+		inc16 (t1, t2)
+		dec16 (b1, b2)
+
+		/* if (!b) times_in++, b = temp_b; */
+		var zero        zero = 0;
+		var t
+		cmp16 (b1, b2, zero, zero, t)
+		if t
+			inc16 (ti1, ti2)
+			equ16 (b1, b2, tb1, tb2)
+		end
+
+		cmp16 (t1, t2, a1, a2, f)
+		not f
+	end
+
+	equ16 (a1, a2, ti1, ti2)
+	equ16 (b1, b2, tb1, tb2)
+end
+
+macro print16 (a1, a2)
+	array digits 5;
+	var dp  dp = 0; /* digit pointer */
+	
+	var t1  t1 = a1
+	var t2  t2 = a2
+
+	var f   f = 1;
+	while f
+		var zero        zero = 0;
+		var ten         ten = 10;
+
+		var mod1        mod1 = t1
+		var mod2        mod2 = t2
+		mod16 (mod1, mod2, ten, zero)
+		digits[dp] = mod1       dp + 1;
+
+		div16 (t1, t2, ten, zero)
+		f = t1  f || t2 /* while (t1 || t2) */
+	end
+
+	var i   i = dp
+	while i
+		i - 1;
+		var t   t = digits[i]
+		print t
+	end
+end
+
+macro bound_cell (c1, c2)
+	var t
+	var bound1      var bound2
+
+	bound1 = 255;   bound2 = 255;
+	cmp16 (c1, c2, bound1, bound2, t) /* compare cell to -1 */
+	if t    c1 = 0; c2 = 0; end
+
+	bound1 = 0;     bound2 = 1;
+	cmp16 (c1, c2, bound1, bound2, t) /* compare cell to 256 */
+	if t    c1 = 0; c2 = 0; end
+end
+
+macro do_instruction (c, f, c1, c2)
+	bound_cell (c1, c2)
+
+	var t
+
+	t = c   t == 'i';
+	if t    inc16 (c1, c2)  end
+
+	t = c   t == 'd';
+	if t    dec16 (c1, c2)  end
+	
+	t = c   t == 's';
+	if t
+		var t1  var t2
+		equ16 (t1, t2, c1, c2)
+		mul16 (c1, c2, t1, t2)
+	end
+
+	t = c   t == 'o';
+	if t    print16 (c1, c2)        print "\n"      end
+
+	t = c   t == 'h';
+	if t    f = 0;          end
+end
+
+macro main ()
+	var f   f = 1;
+	var c1  var c2
+	
+	while f
+		print ">> "
+		var eol eol = 1;
+		
+		while eol
+			var c   input c
+			do_instruction (c, f, c1, c2)
+			eol = c eol == '\n';    not eol
+		end
+	end
+end
+
+main ()
