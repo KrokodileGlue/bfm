@@ -3,7 +3,7 @@
 
 define WIDTH 66;
 
-macro rule90 (l, c, r, nl, nc, nr, result)
+macro rule90 (l, r, nl, nr, result)
 	if l
 		if nr
 			result = 1;
@@ -127,8 +127,8 @@ macro update_cell (field, i, rule, result)
 	var temp
 	temp = rule     temp == RULE_90;
 	if temp
-		rule90 (left,     center,     right,
-			not_left, not_center, not_right,
+		rule90 (left,     right,
+			not_left, not_right,
 			result)
 	end
 
